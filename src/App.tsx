@@ -973,7 +973,7 @@ export default function App() {
                       className="w-full py-4.5 bg-orange-500 hover:bg-orange-600 rounded-2xl text-black font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.01]"
                     >
                       <Sparkles className="w-5 h-5 fill-current" />
-                      <span>র্যান্ডম প্রশ্ন খেলুন • Instant Random Play</span>
+                      <span>রেন্ডম প্রশ্ন খেলুন • Instant Random Play</span>
                     </button>
                   </div>
                 )}
