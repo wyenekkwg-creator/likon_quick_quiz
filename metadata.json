@@ -1,0 +1,6 @@
+{
+  "name": "D-Likon (ডি-লিকন)",
+  "description": "ডি-লিকন: তথ্যের নানা রঙ - A thrilling, surprise-driven General Knowledge learning application designed with emotional triggers, vibrant gamified themes, and visual storytelling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
