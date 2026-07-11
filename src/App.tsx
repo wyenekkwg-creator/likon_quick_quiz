@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
+} from "recharts";
+import {
   Flame,
   Zap,
   Award,
@@ -28,19 +38,41 @@ import {
   MessageSquare,
   Maximize2,
   Minimize2,
-  Info
+  Info,
+  Users,
+  Upload,
+  Printer,
+  Plus,
+  Trash2,
+  UserPlus,
+  Calendar,
+  X,
+  Crown,
+  Timer,
+  Settings
 } from "lucide-react";
 
 import { CATEGORIES, BADGES, DEFAULT_QUESTIONS } from "./data";
-import { Question, Category, Badge, UserStats } from "./types";
+import { Question, Category, Badge, UserStats, EventParticipant, EventSession } from "./types";
 import { playSynthSound } from "./utils/audio";
 import { speakText, setSpeechEnabled, getSpeechEnabled, cancelSpeech } from "./utils/speech";
+// @ts-ignore
+import dLikonLogo from "./assets/images/d_likon_logo_1783768017322.jpg";
 
 import MysteryBox from "./components/MysteryBox";
 import VisualAnchor from "./components/VisualAnchor";
 import BadgeCard from "./components/BadgeCard";
 import NotificationCenter from "./components/NotificationCenter";
 import CategoryIcon from "./components/CategoryIcon";
+
+const PRESET_AVATARS = [
+  { id: "avatar1", emoji: "🎓", label: "Scholar Boy" },
+  { id: "avatar2", emoji: "🎒", label: "Scholar Girl" },
+  { id: "avatar3", emoji: "🚀", label: "Little Scientist" },
+  { id: "avatar4", emoji: "🎨", label: "Little Artist" },
+  { id: "avatar5", emoji: "🦁", label: "Little Lion" },
+  { id: "avatar6", emoji: "⚡", label: "Super Kid" },
+];
 
 export default function App() {
   // Splash Screen & Setup
@@ -51,7 +83,7 @@ export default function App() {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<"home" | "categories" | "badges" | "ai_sandbox" | "archive">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "categories" | "badges" | "ai_sandbox" | "archive" | "event" | "leaderboard">("home");
 
   // User Gamified States (loaded from localStorage with safe default fallback)
   const [userStats, setUserStats] = useState<UserStats>(() => {
@@ -100,6 +132,50 @@ export default function App() {
   const [isMuted, setIsMuted] = useState(false);
   const [isVoiceOn, setIsVoiceOn] = useState(true);
 
+  // Soundpack select state
+  const [soundPack, setSoundPack] = useState<"classic" | "retro" | "zen" | "synth">(() => {
+    try {
+      const saved = localStorage.getItem("dlikon_sound_pack");
+      if (saved === "classic" || saved === "retro" || saved === "zen" || saved === "synth") {
+        return saved;
+      }
+    } catch (e) {
+      console.warn("Could not read sound pack", e);
+    }
+    return "classic";
+  });
+
+  // Save selected sound pack to localStorage on modification
+  useEffect(() => {
+    try {
+      localStorage.setItem("dlikon_sound_pack", soundPack);
+    } catch (e) {
+      console.warn("Could not save sound pack to localStorage", e);
+    }
+  }, [soundPack]);
+
+  // Difficulty level config state
+  const [quizDifficulty, setQuizDifficulty] = useState<"beginner" | "intermediate" | "advanced">(() => {
+    try {
+      const saved = localStorage.getItem("dlikon_difficulty");
+      if (saved === "beginner" || saved === "intermediate" || saved === "advanced") {
+        return saved;
+      }
+    } catch (e) {
+      console.warn("Could not read difficulty", e);
+    }
+    return "beginner";
+  });
+
+  // Save selected difficulty to localStorage on modification
+  useEffect(() => {
+    try {
+      localStorage.setItem("dlikon_difficulty", quizDifficulty);
+    } catch (e) {
+      console.warn("Could not save difficulty to localStorage", e);
+    }
+  }, [quizDifficulty]);
+
   // Active Category / Game Flow States
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
@@ -122,6 +198,197 @@ export default function App() {
   const [archiveCategoryFilter, setArchiveCategoryFilter] = useState<string | null>(null);
   const [expandedFact, setExpandedFact] = useState<string | null>(null);
 
+  // Leaderboard States
+  const [leaderboardSearch, setLeaderboardSearch] = useState("");
+  const [leaderboardClassFilter, setLeaderboardClassFilter] = useState<string>("All");
+  const [leaderboardEventFilter, setLeaderboardEventFilter] = useState<string>("All");
+  const [leaderboardSubTab, setLeaderboardSubTab] = useState<"leaderboard" | "performance">("leaderboard");
+  const [selectedPerformanceParticipant, setSelectedPerformanceParticipant] = useState<string>("");
+
+  // Event Zone Management States
+  const [events, setEvents] = useState<EventSession[]>(() => {
+    try {
+      const saved = localStorage.getItem("dlikon_event_sessions");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Could not read events from localStorage", e);
+    }
+    return [
+      {
+        id: "event-pre-1",
+        title: "প্রথম ট্রাইমেস্টার কুইজ ২০২৬ (First Trimester Quiz 2026)",
+        date: "2026-03-15",
+        isActive: false,
+        participants: [
+          {
+            id: "p-pre-1-1",
+            name: "সাদিয়া রহমান (Sadia Rahman)",
+            className: "৩য় (Class 3)",
+            roll: "০৫",
+            photoUrl: "avatar2",
+            score: 200,
+            solvedCount: 2,
+            totalAttempted: 5,
+            joinedAt: "2026-03-15T09:00:00.000Z"
+          },
+          {
+            id: "p-pre-1-2",
+            name: "আরিফ বিল্লাহ (Arif Billah)",
+            className: "৩য় (Class 3)",
+            roll: "১২",
+            photoUrl: "avatar3",
+            score: 300,
+            solvedCount: 3,
+            totalAttempted: 5,
+            joinedAt: "2026-03-15T09:05:00.000Z"
+          },
+          {
+            id: "p-pre-1-3",
+            name: "তাহসিন হাসান (Tahsin Hasan)",
+            className: "৩য় (Class 3)",
+            roll: "০২",
+            photoUrl: "avatar1",
+            score: 400,
+            solvedCount: 4,
+            totalAttempted: 5,
+            joinedAt: "2026-03-15T09:10:00.000Z"
+          }
+        ]
+      },
+      {
+        id: "event-pre-2",
+        title: "অর্ধ-বার্ষিক প্রস্তুতি পরীক্ষা ২০২৬ (Mid-term Prep Quiz 2026)",
+        date: "2026-05-20",
+        isActive: false,
+        participants: [
+          {
+            id: "p-pre-2-1",
+            name: "সাদিয়া রহমান (Sadia Rahman)",
+            className: "৩য় (Class 3)",
+            roll: "০৫",
+            photoUrl: "avatar2",
+            score: 300,
+            solvedCount: 3,
+            totalAttempted: 5,
+            joinedAt: "2026-05-20T09:00:00.000Z"
+          },
+          {
+            id: "p-pre-2-2",
+            name: "আরিফ বিল্লাহ (Arif Billah)",
+            className: "৩য় (Class 3)",
+            roll: "১২",
+            photoUrl: "avatar3",
+            score: 450,
+            solvedCount: 4,
+            totalAttempted: 5,
+            joinedAt: "2026-05-20T09:05:00.000Z"
+          },
+          {
+            id: "p-pre-2-3",
+            name: "তাহসিন হাসান (Tahsin Hasan)",
+            className: "৩য় (Class 3)",
+            roll: "০২",
+            photoUrl: "avatar1",
+            score: 200,
+            solvedCount: 2,
+            totalAttempted: 5,
+            joinedAt: "2026-05-20T09:10:00.000Z"
+          }
+        ]
+      },
+      {
+        id: "event-1",
+        title: "বার্ষিক কুইজ উৎসব ২০২৬ (Annual Quiz 2026)",
+        date: "2026-07-10",
+        isActive: true,
+        participants: [
+          {
+            id: "p-1",
+            name: "সাদিয়া রহমান (Sadia Rahman)",
+            className: "৩য় (Class 3)",
+            roll: "০৫",
+            photoUrl: "avatar2",
+            score: 400,
+            solvedCount: 4,
+            totalAttempted: 5,
+            joinedAt: new Date().toISOString()
+          },
+          {
+            id: "p-2",
+            name: "আরিফ বিল্লাহ (Arif Billah)",
+            className: "৩য় (Class 3)",
+            roll: "১২",
+            photoUrl: "avatar3",
+            score: 500,
+            solvedCount: 5,
+            totalAttempted: 5,
+            joinedAt: new Date().toISOString()
+          },
+          {
+            id: "p-3",
+            name: "তাহসিন হাসান (Tahsin Hasan)",
+            className: "৩য় (Class 3)",
+            roll: "০২",
+            photoUrl: "avatar1",
+            score: 300,
+            solvedCount: 3,
+            totalAttempted: 5,
+            joinedAt: new Date().toISOString()
+          }
+        ]
+      }
+    ];
+  });
+
+  const [activeEventId, setActiveEventId] = useState<string | null>("event-1");
+  const [currentEventPlayerId, setCurrentEventPlayerId] = useState<string | null>(null);
+  const [eventQuizQuestions, setEventQuizQuestions] = useState<Question[]>([]);
+  const [eventQuizIndex, setEventQuizIndex] = useState<number>(0);
+  const [eventQuizScore, setEventQuizScore] = useState<number>(0);
+  const [eventQuizState, setEventQuizState] = useState<"idle" | "playing" | "summary">("idle");
+  const [eventQuizSelectedAnswer, setEventQuizSelectedAnswer] = useState<number | null>(null);
+  const [eventTimeAttack, setEventTimeAttack] = useState<boolean>(false);
+  const [eventTimeLeft, setEventTimeLeft] = useState<number>(10);
+  
+  // Certificate and Winner display states
+  const [selectedCertificateParticipant, setSelectedCertificateParticipant] = useState<EventParticipant | null>(null);
+  const [certificateEventName, setCertificateEventName] = useState<string>("বার্ষিক কুইজ উৎসব ২০২৬ (Annual Quiz 2026)");
+  const [eventShareCopied, setEventShareCopied] = useState<boolean>(false);
+
+  // Event Form States
+  const [newParticipantName, setNewParticipantName] = useState("");
+  const [newParticipantClass, setNewParticipantClass] = useState("৩য় (Class 3)");
+  const [newParticipantRoll, setNewParticipantRoll] = useState("");
+  const [newParticipantPhoto, setNewParticipantPhoto] = useState("avatar1"); // base64 string OR preset avatar ID
+
+  // Time Attack Mode Countdown Timer
+  useEffect(() => {
+    if (eventQuizState === "playing" && eventTimeAttack && eventQuizSelectedAnswer === null) {
+      setEventTimeLeft(10);
+      const timer = setInterval(() => {
+        setEventTimeLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setEventQuizSelectedAnswer(-1);
+            playSound("incorrect");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [eventQuizState, eventQuizIndex, eventTimeAttack, eventQuizSelectedAnswer]);
+
+  // Save event sessions to localStorage on modification
+  useEffect(() => {
+    try {
+      localStorage.setItem("dlikon_event_sessions", JSON.stringify(events));
+    } catch (e) {
+      console.warn("Could not save events to localStorage", e);
+    }
+  }, [events]);
+
   // Save stats to localStorage on modification
   useEffect(() => {
     try {
@@ -139,6 +406,137 @@ export default function App() {
       console.warn("Could not save custom questions to localStorage", e);
     }
   }, [customQuestions]);
+
+  // 1. Add participant to active event
+  const handleAddParticipant = () => {
+    if (!newParticipantName.trim() || !newParticipantRoll.trim()) {
+      alert("দয়া করে নাম এবং রোল ইনপুট দিন!");
+      return;
+    }
+    
+    playSound("tap");
+    
+    const newParticipant: EventParticipant = {
+      id: `p-${Date.now()}`,
+      name: newParticipantName.trim(),
+      className: newParticipantClass.trim(),
+      roll: newParticipantRoll.trim(),
+      photoUrl: newParticipantPhoto,
+      score: 0,
+      solvedCount: 0,
+      totalAttempted: 0,
+      joinedAt: new Date().toISOString()
+    };
+
+    setEvents(prev => prev.map(evt => {
+      if (evt.id === activeEventId) {
+        return {
+          ...evt,
+          participants: [...evt.participants, newParticipant]
+        };
+      }
+      return evt;
+    }));
+
+    // Reset inputs
+    setNewParticipantName("");
+    setNewParticipantRoll("");
+    setNewParticipantPhoto("avatar1");
+    
+    playSound("correct");
+  };
+
+  // 2. Remove participant from event
+  const handleRemoveParticipant = (participantId: string) => {
+    if (confirm("আপনি কি নিশ্চিতভাবে এই অংশগ্রহণকারীকে মুছে ফেলতে চান?")) {
+      playSound("tap");
+      setEvents(prev => prev.map(evt => {
+        if (evt.id === activeEventId) {
+          return {
+            ...evt,
+            participants: evt.participants.filter(p => p.id !== participantId)
+          };
+        }
+        return evt;
+      }));
+    }
+  };
+
+  // 3. Start event quiz for a participant
+  const handleStartEventQuiz = (participantId: string) => {
+    playSound("tap");
+    const activeEvt = events.find(e => e.id === activeEventId);
+    const participant = activeEvt?.participants.find(p => p.id === participantId);
+    if (!participant) return;
+
+    // Get 5 random questions from DEFAULT_QUESTIONS matching chosen difficulty
+    let filtered = DEFAULT_QUESTIONS.filter((q) => q.difficulty === quizDifficulty);
+    if (filtered.length < 5) {
+      const extra = DEFAULT_QUESTIONS.filter((q) => q.difficulty !== quizDifficulty);
+      filtered = [...filtered, ...extra];
+    }
+    const shuffled = [...filtered].sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, 5);
+
+    setCurrentEventPlayerId(participantId);
+    setEventQuizQuestions(selected);
+    setEventQuizIndex(0);
+    setEventQuizScore(0);
+    setEventQuizSelectedAnswer(null);
+    setEventTimeLeft(10);
+    setEventQuizState("playing");
+  };
+
+  // 4. Submit answer in event quiz
+  const handleEventAnswerSubmit = (optionIndex: number) => {
+    if (eventQuizSelectedAnswer !== null) return; // already answered
+
+    setEventQuizSelectedAnswer(optionIndex);
+    const currentQ = eventQuizQuestions[eventQuizIndex];
+    const isCorrect = optionIndex === currentQ.answerIndex;
+
+    if (isCorrect) {
+      playSound("correct");
+      setEventQuizScore(prev => prev + 100);
+      triggerConfettiBlast();
+    } else {
+      playSound("incorrect");
+    }
+  };
+
+  // 5. Advance or Finish event quiz
+  const handleNextEventQuestion = () => {
+    playSound("tap");
+    if (eventQuizIndex < 4) {
+      setEventQuizIndex(prev => prev + 1);
+      setEventQuizSelectedAnswer(null);
+    } else {
+      // Last question completed! Save score!
+      setEvents(prev => prev.map(evt => {
+        if (evt.id === activeEventId) {
+          return {
+            ...evt,
+            participants: evt.participants.map(p => {
+              if (p.id === currentEventPlayerId) {
+                return {
+                  ...p,
+                  score: eventQuizScore,
+                  solvedCount: eventQuizScore / 100,
+                  totalAttempted: 5
+                };
+              }
+              return p;
+            })
+          };
+        }
+        return evt;
+      }));
+
+      setEventQuizState("summary");
+      playSound("badge");
+      triggerConfettiBlast();
+    }
+  };
 
   // Simulate Splash screen loading momentum
   useEffect(() => {
@@ -276,7 +674,7 @@ export default function App() {
   // Sound play wrappers respecting global mute settings
   const playSound = (type: "tap" | "correct" | "incorrect" | "badge" | "notif") => {
     if (!isMuted) {
-      playSynthSound(type);
+      playSynthSound(type, soundPack);
     }
   };
 
@@ -284,8 +682,11 @@ export default function App() {
   const handleSelectCategory = (category: Category) => {
     playSound("tap");
     setActiveCategory(category);
-    // Find a default question from the selected category
-    const filtered = DEFAULT_QUESTIONS.filter((q) => q.category === category.id);
+    // Find a default question from the selected category matching chosen difficulty
+    let filtered = DEFAULT_QUESTIONS.filter((q) => q.category === category.id && q.difficulty === quizDifficulty);
+    if (filtered.length === 0) {
+      filtered = DEFAULT_QUESTIONS.filter((q) => q.category === category.id);
+    }
     const randomQ = filtered[Math.floor(Math.random() * filtered.length)] || DEFAULT_QUESTIONS[0];
     
     setActiveQuestion(randomQ);
@@ -296,7 +697,11 @@ export default function App() {
   // Start general random Mystery Box
   const handleStartRandomBox = () => {
     playSound("tap");
-    const randomQ = DEFAULT_QUESTIONS[Math.floor(Math.random() * DEFAULT_QUESTIONS.length)];
+    let filtered = DEFAULT_QUESTIONS.filter((q) => q.difficulty === quizDifficulty);
+    if (filtered.length === 0) {
+      filtered = DEFAULT_QUESTIONS;
+    }
+    const randomQ = filtered[Math.floor(Math.random() * filtered.length)];
     const categoryProfile = CATEGORIES.find((c) => c.id === randomQ.category) || CATEGORIES[0];
     
     setActiveCategory(categoryProfile);
@@ -407,8 +812,11 @@ export default function App() {
     setQuizState("idle");
 
     if (activeCategory) {
-      // Find a different question from same category
-      const filtered = DEFAULT_QUESTIONS.filter((q) => q.category === activeCategory.id);
+      // Find a different question from same category matching chosen difficulty
+      let filtered = DEFAULT_QUESTIONS.filter((q) => q.category === activeCategory.id && q.difficulty === quizDifficulty);
+      if (filtered.length === 0) {
+        filtered = DEFAULT_QUESTIONS.filter((q) => q.category === activeCategory.id);
+      }
       const randomQ = filtered[Math.floor(Math.random() * filtered.length)] || DEFAULT_QUESTIONS[0];
       setActiveQuestion(randomQ);
     } else {
@@ -431,7 +839,8 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: customTopic,
-          category: activeCategory?.id || "science"
+          category: activeCategory?.id || "science",
+          difficulty: quizDifficulty
         })
       });
 
@@ -446,7 +855,8 @@ export default function App() {
         setActiveCategory(matchedCategory);
         setActiveQuestion({
           ...resData.data,
-          category: matchedCategory.id
+          category: matchedCategory.id,
+          difficulty: resData.data.difficulty || quizDifficulty
         });
         
         setQuizState("idle");
@@ -539,7 +949,7 @@ export default function App() {
 
       {/* Main Container Wrapper - Supports simulated phone view vs full-screen */}
       <div
-        className={`w-full transition-all duration-500 z-10 flex flex-col ${
+        className={`w-full transition-all duration-500 z-10 flex flex-col print:hidden ${
           isFullScreen ? "max-w-6xl" : "max-w-[430px]"
         }`}
       >
@@ -591,6 +1001,12 @@ export default function App() {
                   </div>
 
                   {/* Bengali Display Title */}
+                  <img
+                    src={dLikonLogo}
+                    alt="D-Likon Logo"
+                    className="w-24 h-24 rounded-full border-2 border-orange-500/50 shadow-lg shadow-orange-500/20 mb-4 object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                   <h1 className="text-white font-display font-black text-5xl tracking-tighter leading-none bg-gradient-to-r from-orange-400 via-pink-400 to-indigo-400 bg-clip-text text-transparent uppercase">
                     ডি-লিকন
                   </h1>
@@ -640,7 +1056,12 @@ export default function App() {
                   setActiveTab("home");
                 }}
               >
-                <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center font-bold text-xl shadow-lg shadow-orange-500/20 text-black">ডি</div>
+                <img
+                  src={dLikonLogo}
+                  alt="D-Likon Logo"
+                  className="w-10 h-10 rounded-xl border border-orange-500/30 shadow-lg shadow-orange-500/10 object-cover"
+                  referrerPolicy="no-referrer"
+                />
                 <div>
                   <h2 className="text-white font-black text-lg font-display tracking-tighter leading-none">
                     ডি-লিকন
@@ -677,6 +1098,24 @@ export default function App() {
                   title={isMuted ? "Sound: MUTED" : "Sound: ENABLED"}
                 >
                   {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+
+                {/* Settings Toggle */}
+                <button
+                  onClick={() => {
+                    playSound("tap");
+                    setActiveTab(activeTab === "settings" ? "home" : "settings");
+                    setActiveQuestion(null);
+                    setQuizState("idle");
+                  }}
+                  className={`p-1.5 rounded-lg border transition-all ${
+                    activeTab === "settings"
+                      ? "bg-purple-500/15 border-purple-500/40 text-purple-400"
+                      : "bg-white/5 border-white/5 text-white/60 hover:text-white"
+                  }`}
+                  title="Settings & Soundboard • সেটিংস"
+                >
+                  <Settings className="w-3.5 h-3.5" />
                 </button>
 
                 {/* Layout Resize Toggle */}
@@ -772,9 +1211,16 @@ export default function App() {
                       </span>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-mono text-${activeCategory?.color}-400 font-bold bg-${activeCategory?.color}-500/15 border border-${activeCategory?.color}-500/20 px-2.5 py-1 rounded-md uppercase`}>
-                    {activeCategory?.vibe}
-                  </span>
+                  <div className="flex flex-col sm:flex-row items-end gap-2">
+                    {activeQuestion.difficulty && (
+                      <span className={`text-[10px] font-mono text-white/80 font-bold bg-white/10 border border-white/20 px-2.5 py-1 rounded-md uppercase`}>
+                        {activeQuestion.difficulty === "beginner" ? "সহজ • Beginner" : activeQuestion.difficulty === "intermediate" ? "মধ্যম • Intermediate" : "কঠিন • Advanced"}
+                      </span>
+                    )}
+                    <span className={`text-[10px] font-mono text-${activeCategory?.color}-400 font-bold bg-${activeCategory?.color}-500/15 border border-${activeCategory?.color}-500/20 px-2.5 py-1 rounded-md uppercase`}>
+                      {activeCategory?.vibe}
+                    </span>
+                  </div>
                 </div>
 
                 {/* GAME STAGES CONTAINER */}
@@ -925,7 +1371,46 @@ export default function App() {
 
                 {/* TAB CONTENT 1: HOME DISCOVER */}
                 {activeTab === "home" && (
-                  <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-6">
+                    {/* DIFFICULTY LEVEL SELECTOR */}
+                    <motion.div
+                      initial={{ y: 15, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="p-5 rounded-3xl bg-white/5 border border-white/10 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                    >
+                      <div>
+                        <span className="text-[10px] font-mono tracking-widest uppercase text-orange-400 block leading-none">
+                          Challenge Intensity • কুইজের মান
+                        </span>
+                        <h4 className="text-white font-sans font-black text-lg mt-1.5 block">
+                          Set Quiz Difficulty Level
+                        </h4>
+                      </div>
+                      <div className="flex bg-black/40 p-1 rounded-2xl border border-white/10 w-full sm:w-auto">
+                        {(["beginner", "intermediate", "advanced"] as const).map((level) => {
+                          const isActive = quizDifficulty === level;
+                          const labelBn = level === "beginner" ? "সহজ" : level === "intermediate" ? "মধ্যম" : "কঠিন";
+                          const labelEn = level === "beginner" ? "Beginner" : level === "intermediate" ? "Intermediate" : "Advanced";
+                          const activeColorClass = level === "beginner" ? "bg-emerald-500 text-black font-black" : level === "intermediate" ? "bg-orange-500 text-black font-black" : "bg-red-500 text-black font-black";
+                          return (
+                            <button
+                              key={level}
+                              onClick={() => {
+                                playSound("tap");
+                                setQuizDifficulty(level);
+                              }}
+                              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-200 ${
+                                isActive ? activeColorClass : "text-white/60 hover:text-white hover:bg-white/5"
+                              }`}
+                            >
+                              <span className="block leading-none text-center font-bold">{labelBn}</span>
+                              <span className="block text-[8px] opacity-75 mt-0.5 text-center leading-none font-bold">{labelEn}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400 mb-1">
                         Choose Your Path • কৌতূহলের পথ
@@ -1491,6 +1976,1902 @@ export default function App() {
                   </div>
                 )}
 
+                {/* TAB CONTENT 6: EVENT ZONE */}
+                {activeTab === "event" && (
+                  <div className="flex flex-col gap-5 flex-1">
+                    
+                    {/* Header */}
+                    <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400 mb-1 animate-pulse">
+                        Event Zone • স্কুলের কুইজ উৎসব
+                      </span>
+                      <h3 className="text-white font-display font-black text-3xl tracking-tighter leading-none uppercase text-left">
+                        ইভেন্ট জোন ও মেধা মূল্যায়ন
+                      </h3>
+                      <p className="text-white/50 text-xs mt-2 font-sans font-medium text-left">
+                        সহজেই স্কুলের কুইজ ইভেন্ট পরিচালনা করুন। অংশগ্রহণকারীদের তালিকা তৈরি করুন, লাইভ স্কোর ট্র্যাক করুন এবং সর্বোচ্চ স্কোরধারীর জন্য মেধা প্রশংসাপত্র (Certificate) জেনারেট করুন!
+                      </p>
+                    </div>
+
+                    {/* EVENT QUIZ GAMEPLAY CONTROLLER (ACTIVE GAME MODE) */}
+                    {eventQuizState === "playing" && currentEventPlayerId && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className={`p-5 rounded-3xl bg-slate-950 border-2 flex flex-col gap-5 relative overflow-hidden text-left transition-all duration-300 ${
+                          eventTimeAttack
+                            ? eventTimeLeft <= 3 && eventQuizSelectedAnswer === null
+                              ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
+                              : "border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+                            : "border-purple-500/30"
+                        }`}
+                      >
+                        {/* Background subtle neon glow */}
+                        <div className="absolute -top-12 -right-12 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl" />
+                        
+                        {/* Player Header Card */}
+                        {(() => {
+                          const activeEvt = events.find(e => e.id === activeEventId);
+                          const player = activeEvt?.participants.find(p => p.id === currentEventPlayerId);
+                          if (!player) return null;
+                          const isPreset = (player.photoUrl || "").startsWith("avatar");
+                          return (
+                            <div className="flex items-center justify-between border-b border-white/10 pb-4 text-left gap-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-xl overflow-hidden font-bold">
+                                  {isPreset ? (
+                                    <span className="text-2xl">
+                                      {player.photoUrl === "avatar1" ? "🎓" :
+                                       player.photoUrl === "avatar2" ? "🎒" :
+                                       player.photoUrl === "avatar3" ? "🚀" :
+                                       player.photoUrl === "avatar4" ? "🎨" :
+                                       player.photoUrl === "avatar5" ? "🦁" : "⚡"}
+                                    </span>
+                                  ) : (
+                                    <img src={player.photoUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                  )}
+                                </div>
+                                <div className="text-left">
+                                  <span className="text-[10px] font-mono uppercase text-purple-400 font-bold block leading-none mb-1 text-left">
+                                    Active Player • কুইজ খেলছে
+                                  </span>
+                                  <h4 className="text-white font-bold text-base leading-none text-left">{player.name}</h4>
+                                  <span className="text-[10px] text-white/50 block mt-1 text-left">শ্রেণি: {player.className} • রোল: {player.roll}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {eventTimeAttack && (
+                                  <div id="event-timer-badge" className={`px-3 py-1.5 rounded-xl text-center border transition-all duration-300 ${
+                                    eventQuizSelectedAnswer !== null 
+                                      ? "bg-white/5 border-white/5 text-white/40"
+                                      : eventTimeLeft <= 3 
+                                        ? "bg-red-500/15 border-red-500/30 text-red-400 animate-pulse" 
+                                        : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                                  }`}>
+                                    <span className="text-[8px] text-slate-500 uppercase block font-bold leading-none mb-0.5">Time Left</span>
+                                    <span className="text-xs font-mono font-black flex items-center justify-center gap-1">
+                                      ⏱️ {eventQuizSelectedAnswer === -1 ? "0s" : `${eventTimeLeft}s`}
+                                    </span>
+                                  </div>
+                                )}
+                                <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-center">
+                                  <span className="text-[8px] text-slate-400 uppercase tracking-wider block font-bold leading-none mb-0.5">Event Score</span>
+                                  <span className="text-sm font-mono font-black text-emerald-400">{eventQuizScore} Pts</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Current Question Block */}
+                        {eventQuizQuestions.length > 0 && (
+                          <div className="flex flex-col gap-4 text-left">
+                            
+                            {/* Time Attack Progress Bar */}
+                            {eventTimeAttack && (
+                              <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden border border-white/5 relative">
+                                <motion.div
+                                  initial={{ width: "100%" }}
+                                  animate={{ width: eventQuizSelectedAnswer !== null ? "100%" : `${(eventTimeLeft / 10) * 100}%` }}
+                                  transition={{ duration: eventQuizSelectedAnswer !== null ? 0.3 : 1, ease: "linear" }}
+                                  className={`h-full transition-colors duration-300 ${
+                                    eventQuizSelectedAnswer !== null
+                                      ? "bg-purple-500"
+                                      : eventTimeLeft <= 3 
+                                        ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse" 
+                                        : "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]"
+                                  }`}
+                                />
+                              </div>
+                            )}
+
+                            <div className="flex justify-between items-center text-xs font-mono text-purple-400 text-left">
+                              <span>প্রশ্ন {eventQuizIndex + 1}/৫ (Question {eventQuizIndex + 1}/5)</span>
+                              <span className="bg-purple-500/15 px-2.5 py-0.5 rounded-full font-bold">
+                                {CATEGORIES.find(c => c.id === eventQuizQuestions[eventQuizIndex].category)?.bengaliName || "সাধারণ জ্ঞান"}
+                              </span>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-black/40 border border-white/5 text-center my-1 min-h-[100px] flex items-center justify-center">
+                              <h4 className="text-white font-display font-black text-lg md:text-xl tracking-tight leading-snug">
+                                "{eventQuizQuestions[eventQuizIndex].question}"
+                              </h4>
+                            </div>
+
+                            {/* Options */}
+                            <div className="flex flex-col gap-2.5">
+                              {eventQuizQuestions[eventQuizIndex].options.map((option, idx) => {
+                                const isAnswered = eventQuizSelectedAnswer !== null;
+                                const isSelected = eventQuizSelectedAnswer === idx;
+                                const isCorrect = idx === eventQuizQuestions[eventQuizIndex].answerIndex;
+                                
+                                let optStyle = "bg-white/5 border-white/5 text-white/80 hover:bg-white/10 hover:border-white/10";
+                                if (isAnswered) {
+                                  if (isCorrect) {
+                                    optStyle = "bg-emerald-500/20 border-emerald-500 text-emerald-400";
+                                  } else if (isSelected) {
+                                    optStyle = "bg-red-500/20 border-red-500 text-red-400";
+                                  } else {
+                                    optStyle = "bg-white/5 border-white/5 text-white/20 opacity-50";
+                                  }
+                                }
+
+                                return (
+                                  <button
+                                    key={idx}
+                                    disabled={isAnswered}
+                                    onClick={() => handleEventAnswerSubmit(idx)}
+                                    className={`p-3.5 rounded-xl text-left font-sans font-bold text-xs border-2 transition-all flex items-center justify-between group ${optStyle}`}
+                                  >
+                                    <span className="flex items-center gap-3">
+                                      <span className={`w-6 h-6 rounded-lg flex items-center justify-center font-mono text-xs ${
+                                        isAnswered && isCorrect ? "bg-emerald-500 text-black" :
+                                        isAnswered && isSelected ? "bg-red-500 text-white" : "bg-white/5 border border-white/10 text-white/40"
+                                      }`}>
+                                        {String.fromCharCode(65 + idx)}
+                                      </span>
+                                      <span>{option}</span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Actions / Feedback */}
+                            {eventQuizSelectedAnswer !== null && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex flex-col gap-3 mt-2 border-t border-white/5 pt-4 text-left"
+                              >
+                                <p className="text-xs text-white/70 leading-relaxed font-sans font-medium text-center">
+                                  {eventQuizSelectedAnswer === -1 ? (
+                                    <span className="text-red-400 font-bold font-sans animate-pulse flex items-center justify-center gap-1.5">
+                                      ⏰ সময় শেষ! সঠিক উত্তরটি ছিল: <span className="underline">{eventQuizQuestions[eventQuizIndex].options[eventQuizQuestions[eventQuizIndex].answerIndex]}</span>
+                                    </span>
+                                  ) : eventQuizSelectedAnswer === eventQuizQuestions[eventQuizIndex].answerIndex ? (
+                                    <span className="text-emerald-400 font-bold">🎉 চমৎকার! সঠিক উত্তর দিতে পেরেছেন!</span>
+                                  ) : (
+                                    <span className="text-red-400 font-bold">
+                                      💡 ভুল উত্তর। সঠিক উত্তরটি ছিল: {eventQuizQuestions[eventQuizIndex].options[eventQuizQuestions[eventQuizIndex].answerIndex]}
+                                    </span>
+                                  )}
+                                </p>
+                                
+                                <button
+                                  onClick={handleNextEventQuestion}
+                                  className="w-full py-3 bg-purple-500 hover:bg-purple-600 text-black font-display font-black rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xl transition-all cursor-pointer"
+                                >
+                                  <span>{eventQuizIndex === 4 ? "ফলাফল দেখুন • See Results" : "পরবর্তী প্রশ্ন • Next Question"}</span>
+                                  <ArrowRight className="w-4 h-4" />
+                                </button>
+                              </motion.div>
+                            )}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+
+                    {/* EVENT QUIZ SUMMARY CELEBRATION */}
+                    {eventQuizState === "summary" && currentEventPlayerId && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-6 rounded-3xl bg-slate-950 border-2 border-emerald-500/30 text-center flex flex-col items-center gap-5 relative overflow-hidden"
+                      >
+                        <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl" />
+                        
+                        <div className="w-16 h-16 bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mb-2 animate-bounce">
+                          <Trophy className="w-8 h-8 fill-current" />
+                        </div>
+
+                        {(() => {
+                          const activeEvt = events.find(e => e.id === activeEventId);
+                          const player = activeEvt?.participants.find(p => p.id === currentEventPlayerId);
+                          if (!player) return null;
+                          return (
+                            <div>
+                              <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold tracking-widest">
+                                Challenge Completed • সমাপ্তি
+                              </span>
+                              <h3 className="text-white font-display font-black text-2xl tracking-tighter mt-1 uppercase">
+                                অভিনন্দন, {player.name}!
+                              </h3>
+                              <p className="text-white/60 text-xs mt-2 max-w-xs mx-auto leading-relaxed">
+                                আপনি ইভেন্ট কুইজটি অত্যন্ত সফলতার সাথে সম্পন্ন করেছেন। আপনার মেধার মূল্যায়ন এখানে সংরক্ষিত করা হয়েছে।
+                              </p>
+
+                              <div className="my-5 p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center gap-6">
+                                <div className="text-center">
+                                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block leading-none mb-1">সঠিক উত্তর</span>
+                                  <span className="text-lg font-mono font-black text-emerald-400">{eventQuizScore / 100} / ৫</span>
+                                </div>
+                                <div className="w-[1px] h-8 bg-white/10" />
+                                <div className="text-center">
+                                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest block leading-none mb-1">মোট স্কোর</span>
+                                  <span className="text-lg font-mono font-black text-emerald-400">{eventQuizScore} Pts</span>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col gap-2.5 w-full max-w-xs mx-auto">
+                                <button
+                                  onClick={() => {
+                                    playSound("tap");
+                                    setSelectedCertificateParticipant(player);
+                                  }}
+                                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-black font-display font-black rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all cursor-pointer"
+                                >
+                                  <Award className="w-4 h-4 fill-current" />
+                                  <span>সনদপত্র ডাউনলোড ও প্রিন্ট • Certificate</span>
+                                </button>
+
+                                <button
+                                  onClick={async () => {
+                                    playSound("tap");
+                                    const shareText = `🏆 স্কুলের কুইজ উৎসব - ডি-লিকন মেধা মূল্যায়ন 🏆\n` +
+                                      `-----------------------------------------\n` +
+                                      `👤 অংশগ্রহণকারী: ${player.name}\n` +
+                                      `📚 শ্রেণি: ${player.className} • রোল: ${player.roll}\n` +
+                                      `🎯 মোট কুইজ স্কোর: ${eventQuizScore} Pts (${eventQuizScore / 100}/৫টি সঠিক উত্তর!)\n\n` +
+                                      `ডি-লিকন মেধা মূল্যায়ন কুইজে আমার স্কোর দেখুন এবং আপনিও আপনার মেধার উজ্জ্বল স্বাক্ষর রাখুন! ✨\n` +
+                                      `${window.location.origin}`;
+
+                                    if (navigator.share) {
+                                      try {
+                                        await navigator.share({
+                                          title: "ডি-লিকন কুইজ ফলাফল",
+                                          text: shareText,
+                                          url: window.location.origin,
+                                        });
+                                      } catch (err) {
+                                        console.log("Error sharing:", err);
+                                        // Fallback to clipboard
+                                        navigator.clipboard.writeText(shareText).then(() => {
+                                          setEventShareCopied(true);
+                                          setTimeout(() => setEventShareCopied(false), 2000);
+                                        });
+                                      }
+                                    } else {
+                                      navigator.clipboard.writeText(shareText).then(() => {
+                                        setEventShareCopied(true);
+                                        setTimeout(() => setEventShareCopied(false), 2000);
+                                      });
+                                    }
+                                  }}
+                                  className="w-full py-3 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 font-sans font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                >
+                                  <Share2 className="w-4 h-4" />
+                                  <span>{eventShareCopied ? "ফলাফল কপি হয়েছে! • Copied!" : "ফলাফল শেয়ার করুন • Share Score"}</span>
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    playSound("tap");
+                                    setEventQuizState("idle");
+                                    setCurrentEventPlayerId(null);
+                                  }}
+                                  className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-sans font-bold rounded-xl text-xs transition-all cursor-pointer"
+                                >
+                                  ইভেন্ট জোন ড্যাশবোর্ডে ফিরুন • Go Back
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </motion.div>
+                    )}
+
+                    {/* EVENT ZONE DASHBOARD (DEFAULT VIEW) */}
+                    {eventQuizState === "idle" && (
+                      <div className="flex flex-col gap-6 text-left">
+                        
+                        {/* Event Title Block */}
+                        {(() => {
+                          const activeEvt = events.find(e => e.id === activeEventId);
+                          if (!activeEvt) return null;
+                          return (
+                            <div className="p-4 rounded-2xl bg-slate-950 border border-white/5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-left">
+                              <div className="flex items-center gap-3 text-left">
+                                <div className="p-2.5 bg-purple-500/10 text-purple-400 rounded-xl">
+                                  <Calendar className="w-5 h-5" />
+                                </div>
+                                <div className="text-left">
+                                  <span className="text-[9px] font-mono uppercase text-purple-400 block tracking-widest text-left">Active Event • সক্রিয় প্রতিযোগিতা</span>
+                                  <h4 className="text-white font-bold text-sm leading-tight mt-0.5 text-left">{activeEvt.title}</h4>
+                                  <span className="text-[10px] text-white/40 block mt-1 font-mono text-left">তারিখ: {new Date(activeEvt.date).toLocaleDateString("bn-BD")} • মোট সদস্য: {activeEvt.participants.length} জন</span>
+                                </div>
+                              </div>
+                              
+                              {/* Create / Select Event button */}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    const title = prompt("নতুন প্রতিযোগিতার নাম দিন:", "স্কুল কুইজ প্রতিযোগিতা ২০২৬");
+                                    if (title && title.trim()) {
+                                      playSound("tap");
+                                      const newEvt: EventSession = {
+                                        id: `event-${Date.now()}`,
+                                        title: title.trim(),
+                                        date: new Date().toISOString().split('T')[0],
+                                        isActive: true,
+                                        participants: []
+                                      };
+                                      setEvents(prev => [...prev.map(e => ({ ...e, isActive: false })), newEvt]);
+                                      setActiveEventId(newEvt.id);
+                                      setCertificateEventName(newEvt.title);
+                                      playSound("correct");
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 rounded-lg text-purple-400 text-[10px] font-sans font-bold transition-all cursor-pointer"
+                                >
+                                  + নতুন ইভেন্ট
+                                </button>
+                                {events.length > 1 && (
+                                  <select
+                                    value={activeEventId || ""}
+                                    onChange={(e) => {
+                                      playSound("tap");
+                                      const id = e.target.value;
+                                      setActiveEventId(id);
+                                      const selected = events.find(ev => ev.id === id);
+                                      if (selected) {
+                                        setCertificateEventName(selected.title);
+                                      }
+                                    }}
+                                    className="bg-black/40 border border-white/15 rounded-lg px-2 text-[10px] text-white font-bold focus:outline-none cursor-pointer"
+                                  >
+                                    {events.map(ev => (
+                                      <option key={ev.id} value={ev.id}>{ev.title.substring(0, 18)}...</option>
+                                    ))}
+                                  </select>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* TIME ATTACK MODE CONTROLLER (অ্যাড্রেনালিন কুইজ চ্যালেঞ্জ) */}
+                        <div className={`p-4 rounded-3xl border-2 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden ${
+                          eventTimeAttack 
+                            ? "bg-gradient-to-r from-red-500/10 via-amber-500/5 to-transparent border-red-500/40 shadow-lg shadow-red-500/5" 
+                            : "bg-slate-950 border-white/5"
+                        }`}>
+                          {/* Ambient animation glow behind icon */}
+                          {eventTimeAttack && (
+                            <div className="absolute top-1/2 left-4 -translate-y-1/2 w-20 h-20 bg-red-500/10 rounded-full blur-2xl animate-pulse pointer-events-none" />
+                          )}
+                          
+                          <div className="flex items-center gap-3 relative z-10 text-left">
+                            <div className={`p-2.5 rounded-2xl transition-all ${
+                              eventTimeAttack ? "bg-red-500/20 text-red-400 animate-bounce" : "bg-white/5 text-white/40"
+                            }`}>
+                              <Timer className="w-5 h-5" />
+                            </div>
+                            <div className="text-left">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] font-mono uppercase text-red-400 font-bold tracking-widest">Time Attack • তীব্র উত্তেজনাপূর্ণ মোড</span>
+                                {eventTimeAttack && (
+                                  <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[8px] font-mono font-bold uppercase animate-pulse">Active</span>
+                                )}
+                              </div>
+                              <h4 className="text-white font-bold text-sm leading-tight mt-0.5 text-left">টাইম অ্যাটাক মোড (১০ সেকেন্ড চ্যালেঞ্জ)</h4>
+                              <p className="text-white/40 text-[10px] mt-1 font-sans text-left">
+                                সক্রিয় করলে প্রতিটি প্রশ্নের উত্তর দেওয়ার জন্য মাত্র ১০ সেকেন্ড সময় পাওয়া যাবে! সময় শেষ হলে প্রশ্নটি স্বয়ংক্রিয়ভাবে বাতিল হয়ে যাবে।
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Beautiful Interactive Switch Button */}
+                          <button
+                            onClick={() => {
+                              playSound("tap");
+                              setEventTimeAttack(!eventTimeAttack);
+                            }}
+                            className={`px-4 py-2 rounded-xl text-xs font-display font-black uppercase transition-all flex items-center gap-1.5 cursor-pointer relative z-10 shrink-0 ${
+                              eventTimeAttack
+                                ? "bg-red-500 hover:bg-red-600 text-black shadow-lg shadow-red-500/20"
+                                : "bg-white/5 hover:bg-white/10 text-white/80 border border-white/10"
+                            }`}
+                          >
+                            <span>{eventTimeAttack ? "বন্ধ করুন (Disable)" : "চালু করুন (Enable)"}</span>
+                          </button>
+                        </div>
+
+                        {/* WINNER HIGHLIGHT PODIUM (বিজয়ীর ছবি ও তথ্য দৃশ্যমান হওয়া) */}
+                        {(() => {
+                          const activeEvt = events.find(e => e.id === activeEventId);
+                          const participants = activeEvt?.participants || [];
+                          if (participants.length === 0) return null;
+                          
+                          // Find highest scorer (winner)
+                          const sorted = [...participants].sort((a, b) => b.score - a.score);
+                          const winner = sorted[0];
+
+                          if (winner.score === 0) {
+                            return (
+                              <div className="p-4 rounded-2xl bg-white/[0.01] border border-dashed border-white/10 text-center py-6">
+                                <p className="text-xs text-white/40 font-medium">প্রতিযোগিতা চলছে। বিজয়ীর ঘোষণা পেতে যেকোনো অংশগ্রহণকারীর পাশে 'কুইজ খেলুন' বাটনে ক্লিক করুন!</p>
+                              </div>
+                            );
+                          }
+
+                          const isPreset = (winner.photoUrl || "").startsWith("avatar");
+
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, y: 15 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-5 rounded-3xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent border-2 border-amber-500/30 relative overflow-hidden flex flex-col items-center text-center gap-4"
+                            >
+                              {/* Background sparkles decoration */}
+                              <div className="absolute top-3 left-4 text-amber-400/20 animate-pulse"><Sparkles className="w-5 h-5" /></div>
+                              <div className="absolute bottom-4 right-4 text-amber-400/20 animate-pulse"><Sparkles className="w-4 h-4" /></div>
+
+                              {/* Crown Badge */}
+                              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-amber-500 text-black text-[9px] font-mono font-black uppercase px-3 py-1 rounded-full shadow-lg flex items-center gap-1">
+                                <Crown className="w-3.5 h-3.5 fill-current animate-bounce" />
+                                <span>সর্বোচ্চ সঠিক উত্তরদাতা • Champion Winner</span>
+                              </div>
+
+                              {/* Winner's Photo Container */}
+                              <div className="relative mt-3">
+                                <div className="w-20 h-20 rounded-full border-4 border-amber-400 bg-amber-500/10 flex items-center justify-center shadow-xl shadow-amber-500/10 overflow-hidden">
+                                  {isPreset ? (
+                                    <span className="text-4xl select-none">
+                                      {winner.photoUrl === "avatar1" ? "🎓" :
+                                       winner.photoUrl === "avatar2" ? "🎒" :
+                                       winner.photoUrl === "avatar3" ? "🚀" :
+                                       winner.photoUrl === "avatar4" ? "🎨" :
+                                       winner.photoUrl === "avatar5" ? "🦁" : "⚡"}
+                                    </span>
+                                  ) : (
+                                    <img src={winner.photoUrl} className="w-full h-full object-cover" alt={winner.name} referrerPolicy="no-referrer" />
+                                  )}
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-amber-400 text-black border-2 border-black rounded-full flex items-center justify-center font-bold font-mono text-xs shadow-md">
+                                  #১
+                                </div>
+                              </div>
+
+                              <div>
+                                <h3 className="text-white font-display font-black text-xl tracking-tight leading-none uppercase">
+                                  {winner.name}
+                                </h3>
+                                <p className="text-amber-400/80 text-xs mt-1.5 font-bold font-sans">
+                                  শ্রেণি: {winner.className} • রোল: {winner.roll}
+                                </p>
+                              </div>
+
+                              <div className="px-5 py-2.5 rounded-2xl bg-black/50 border border-white/5 flex items-center gap-5 justify-center">
+                                <div className="text-center border-r border-white/10 pr-5">
+                                  <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">সঠিক উত্তর</span>
+                                  <span className="text-sm font-mono font-black text-emerald-400">{winner.solvedCount} / ৫টি</span>
+                                </div>
+                                <div className="text-center">
+                                  <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">মোট স্কোর</span>
+                                  <span className="text-sm font-mono font-black text-amber-400">{winner.score} Pts</span>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  playSound("tap");
+                                  setSelectedCertificateParticipant(winner);
+                                }}
+                                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-display font-black rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1 transition-all shadow-lg shadow-amber-500/10 cursor-pointer"
+                              >
+                                <Award className="w-4 h-4 fill-current" />
+                                <span>চ্যাম্পিয়ন প্রশংসাপত্র জেনারেট করুন</span>
+                              </button>
+                            </motion.div>
+                          );
+                        })()}
+
+                        {/* ADD PARTICIPANT FORM */}
+                        <div className="p-5 rounded-3xl bg-slate-950 border border-white/5 flex flex-col gap-4 text-left">
+                          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                            <UserPlus className="w-4 h-4 text-purple-400" />
+                            <h4 className="text-white font-bold text-sm">নতুন প্রতিযোগী যুক্ত করুন • Add Participant</h4>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3.5 text-left">
+                            {/* Name Input */}
+                            <div className="col-span-2 flex flex-col gap-1.5 text-left">
+                              <label className="text-[10px] font-mono text-slate-400 uppercase font-bold text-left">নাম (Name):</label>
+                              <input
+                                type="text"
+                                placeholder="সদস্যের পুরো নাম লিখুন..."
+                                value={newParticipantName}
+                                onChange={(e) => setNewParticipantName(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white font-sans font-medium text-xs focus:outline-none focus:border-purple-500 transition-all placeholder:text-white/20"
+                              />
+                            </div>
+
+                            {/* Class Input */}
+                            <div className="flex flex-col gap-1.5 text-left">
+                              <label className="text-[10px] font-mono text-slate-400 uppercase font-bold text-left">শ্রেণি (Class):</label>
+                              <select
+                                value={newParticipantClass}
+                                onChange={(e) => setNewParticipantClass(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white font-sans font-medium text-xs focus:outline-none focus:border-purple-500 transition-all cursor-pointer"
+                              >
+                                <option value="৩য় (Class 3)">৩য় শ্রেণি</option>
+                                <option value="৪র্থ (Class 4)">৪র্থ শ্রেণি</option>
+                                <option value="৫ম (Class 5)">৫ম শ্রেণি</option>
+                                <option value="৬ষ্ঠ (Class 6)">৬ষ্ঠ শ্রেণি</option>
+                              </select>
+                            </div>
+
+                            {/* Roll Input */}
+                            <div className="flex flex-col gap-1.5 text-left">
+                              <label className="text-[10px] font-mono text-slate-400 uppercase font-bold text-left">রোল (Roll No):</label>
+                              <input
+                                type="text"
+                                placeholder="উদা: ০৫"
+                                value={newParticipantRoll}
+                                onChange={(e) => setNewParticipantRoll(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white font-sans font-medium text-xs focus:outline-none focus:border-purple-500 transition-all placeholder:text-white/20"
+                              />
+                            </div>
+
+                            {/* Avatar Picker / Photo Upload */}
+                            <div className="col-span-2 flex flex-col gap-2 text-left">
+                              <label className="text-[10px] font-mono text-slate-400 uppercase font-bold text-left">ছবি নির্বাচন করুন (Choose Photo / Avatar):</label>
+                              
+                              <div className="flex flex-col gap-3">
+                                {/* Presets Choice */}
+                                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                                  {PRESET_AVATARS.map((av) => (
+                                    <button
+                                      key={av.id}
+                                      type="button"
+                                      onClick={() => setNewParticipantPhoto(av.id)}
+                                      className={`p-2.5 rounded-xl flex items-center justify-center text-xl transition-all border-2 ${
+                                        newParticipantPhoto === av.id
+                                          ? "bg-purple-500/10 border-purple-500 text-white animate-pulse"
+                                          : "bg-black/30 border-white/5 text-white/50 hover:border-white/15"
+                                      }`}
+                                      title={av.label}
+                                    >
+                                      <span>{av.emoji}</span>
+                                    </button>
+                                  ))}
+                                </div>
+
+                                {/* Custom Upload Toggle */}
+                                <div className="flex items-center gap-3">
+                                  <div className="relative">
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onloadend = () => {
+                                            setNewParticipantPhoto(reader.result as string);
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                    <div className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/15 border border-purple-500/20 text-purple-400 rounded-xl transition-all cursor-pointer">
+                                      <Upload className="w-3.5 h-3.5" />
+                                      <span className="text-[10px] font-sans font-bold">নিজস্ব ছবি আপলোড</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Current Preview */}
+                                  {(() => {
+                                    const isPreset = newParticipantPhoto.startsWith("avatar");
+                                    return (
+                                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center overflow-hidden">
+                                        {isPreset ? (
+                                          <span className="text-xl">
+                                            {newParticipantPhoto === "avatar1" ? "🎓" :
+                                             newParticipantPhoto === "avatar2" ? "🎒" :
+                                             newParticipantPhoto === "avatar3" ? "🚀" :
+                                             newParticipantPhoto === "avatar4" ? "🎨" :
+                                             newParticipantPhoto === "avatar5" ? "🦁" : "⚡"}
+                                          </span>
+                                        ) : (
+                                          <img src={newParticipantPhoto} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleAddParticipant}
+                            className="w-full py-3 bg-purple-500 hover:bg-purple-600 text-black font-display font-black rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-xl transition-all cursor-pointer mt-2"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>অংশগ্রহণকারী যুক্ত করুন • Add to List</span>
+                          </button>
+                        </div>
+
+                        {/* PARTICIPANTS LIST GIRD */}
+                        <div className="flex flex-col gap-3 text-left">
+                          <div className="flex justify-between items-center border-b border-white/5 pb-2 text-left">
+                            <span className="text-[10px] font-mono text-slate-400 uppercase font-bold flex items-center gap-1.5 text-left">
+                              <Users className="w-3.5 h-3.5 text-purple-400" />
+                              তালিকাভুক্ত সকল প্রতিযোগী ({(() => {
+                                const activeEvt = events.find(e => e.id === activeEventId);
+                                return activeEvt?.participants.length || 0;
+                              })()} জন)
+                            </span>
+                          </div>
+
+                          {(() => {
+                            const activeEvt = events.find(e => e.id === activeEventId);
+                            const participants = activeEvt?.participants || [];
+                            
+                            if (participants.length === 0) {
+                              return (
+                                <div className="p-8 rounded-2xl bg-white/[0.01] border-2 border-dashed border-white/10 text-center flex flex-col items-center gap-3 py-10">
+                                  <Users className="w-7 h-7 text-white/20" />
+                                  <div>
+                                    <h5 className="text-white font-bold text-xs">কোনো প্রতিযোগী পাওয়া যায়নি</h5>
+                                    <p className="text-white/40 text-[10px] mt-1 font-sans">উপরের ফর্ম ব্যবহার করে প্রথম প্রতিযোগী যুক্ত করুন।</p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="flex flex-col gap-3 text-left">
+                                {participants.map((player) => {
+                                  const isPreset = (player.photoUrl || "").startsWith("avatar");
+                                  
+                                  return (
+                                    <motion.div
+                                      key={player.id}
+                                      className="p-3.5 rounded-2xl bg-slate-950 border border-white/5 flex items-center justify-between gap-3 hover:border-purple-500/20 transition-all group text-left"
+                                    >
+                                      {/* Left block: Photo & details */}
+                                      <div className="flex items-center gap-3 text-left">
+                                        <div className="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/10 flex items-center justify-center text-xl overflow-hidden font-bold relative shrink-0">
+                                          {isPreset ? (
+                                            <span className="text-xl select-none">
+                                              {player.photoUrl === "avatar1" ? "🎓" :
+                                               player.photoUrl === "avatar2" ? "🎒" :
+                                               player.photoUrl === "avatar3" ? "🚀" :
+                                               player.photoUrl === "avatar4" ? "🎨" :
+                                               player.photoUrl === "avatar5" ? "🦁" : "⚡"}
+                                            </span>
+                                          ) : (
+                                            <img src={player.photoUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                          )}
+                                        </div>
+                                        <div className="text-left">
+                                          <h4 className="text-white font-bold text-xs group-hover:text-purple-400 transition-colors text-left leading-snug">
+                                            {player.name}
+                                          </h4>
+                                          <span className="text-[10px] text-white/40 block mt-0.5 text-left">
+                                            শ্রেণি: {player.className} • রোল: {player.roll}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Right block: Stats & Actions */}
+                                      <div className="flex items-center gap-3">
+                                        {/* Score ratio */}
+                                        <div className="text-right flex flex-col justify-center font-mono">
+                                          <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">SCORE</span>
+                                          <span className="text-xs font-bold text-emerald-400">
+                                            {player.score} Pts {player.totalAttempted > 0 && `(${player.solvedCount}/৫)`}
+                                          </span>
+                                        </div>
+
+                                        {/* Action triggers */}
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            onClick={() => handleStartEventQuiz(player.id)}
+                                            className="px-2.5 py-1.5 bg-purple-500/15 hover:bg-purple-500/30 border border-purple-500/30 rounded-lg text-purple-400 hover:text-white text-[10px] font-sans font-bold transition-all cursor-pointer"
+                                            title="কুইজ খেলুন"
+                                          >
+                                            🚀 কুইজ
+                                          </button>
+                                          
+                                          {player.totalAttempted > 0 && (
+                                            <button
+                                              onClick={() => {
+                                                playSound("tap");
+                                                setSelectedCertificateParticipant(player);
+                                              }}
+                                              className="p-1.5 bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-amber-400 hover:text-white transition-all cursor-pointer"
+                                              title="সনদপত্র দেখুন"
+                                            >
+                                              <Award className="w-3.5 h-3.5 fill-current" />
+                                            </button>
+                                          )}
+
+                                          <button
+                                            onClick={() => handleRemoveParticipant(player.id)}
+                                            className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-500 hover:text-white transition-all cursor-pointer"
+                                            title="মুছে ফেলুন"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                {/* TAB CONTENT 7: LEADERBOARD ZONE */}
+                {activeTab === "leaderboard" && (
+                  <div className="flex flex-col gap-5 flex-1">
+                    
+                    {/* Header */}
+                    <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400 mb-1 animate-pulse">
+                        Leaderboard • গ্লোবাল মেধা তালিকা
+                      </span>
+                      <h3 className="text-white font-display font-black text-3xl tracking-tighter leading-none uppercase text-left">
+                        কুইজ মেধা তালিকা
+                      </h3>
+                      <p className="text-white/50 text-xs mt-2 font-sans font-medium text-left">
+                        স্কুলের সকল প্রতিযোগিতার অংশগ্রহণকারীদের বৈশ্বিক মেধা মূল্যায়ন। এখানে সবার অর্জিত মোট পয়েন্ট ও সঠিক উত্তরের রেকর্ড দেখা যাবে।
+                      </p>
+                    </div>
+
+                    {/* SUB-TAB TOGGLES */}
+                    <div className="flex border-b border-white/10 mt-1 mb-2 gap-1 self-start">
+                      <button
+                        onClick={() => {
+                          playSound("tap");
+                          setLeaderboardSubTab("leaderboard");
+                        }}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all relative cursor-pointer ${
+                          leaderboardSubTab === "leaderboard"
+                            ? "text-purple-400 border-b-2 border-purple-500 font-black"
+                            : "text-white/40 hover:text-white/70"
+                        }`}
+                      >
+                        Global Standings • গ্লোবাল মেধা তালিকা
+                      </button>
+                      <button
+                        onClick={() => {
+                          playSound("tap");
+                          setLeaderboardSubTab("performance");
+                        }}
+                        className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all relative cursor-pointer ${
+                          leaderboardSubTab === "performance"
+                            ? "text-purple-400 border-b-2 border-purple-500 font-black"
+                            : "text-white/40 hover:text-white/70"
+                        }`}
+                      >
+                        Performance History • পারফরম্যান্স ইতিহাস
+                      </button>
+                    </div>
+
+                    {leaderboardSubTab === "leaderboard" && (
+                      <div className="flex flex-col gap-5 flex-1">
+
+                        {/* Overall Stats Grid */}
+                    {(() => {
+                      // Calculate quick stats across all events
+                      let totalParticipants = 0;
+                      let highestScore = 0;
+                      let totalScore = 0;
+                      let participantsWithScoreCount = 0;
+
+                      events.forEach(evt => {
+                        evt.participants.forEach(p => {
+                          totalParticipants++;
+                          totalScore += p.score;
+                          if (p.score > highestScore) {
+                            highestScore = p.score;
+                          }
+                          if (p.score > 0) {
+                            participantsWithScoreCount++;
+                          }
+                        });
+                      });
+
+                      const avgScore = participantsWithScoreCount > 0 ? Math.round(totalScore / participantsWithScoreCount) : 0;
+
+                      return (
+                        <div id="leaderboard-quick-stats" className="grid grid-cols-3 gap-3">
+                          <div className="p-3 rounded-2xl bg-slate-950 border border-white/5 text-center flex flex-col justify-center">
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest block leading-none mb-1">মোট প্রতিযোগী</span>
+                            <span className="text-base font-mono font-black text-purple-400">{totalParticipants} জন</span>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-slate-950 border border-white/5 text-center flex flex-col justify-center">
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest block leading-none mb-1">সর্বোচ্চ স্কোর</span>
+                            <span className="text-base font-mono font-black text-amber-400">{highestScore} Pts</span>
+                          </div>
+                          <div className="p-3 rounded-2xl bg-slate-950 border border-white/5 text-center flex flex-col justify-center">
+                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest block leading-none mb-1">গড় স্কোর</span>
+                            <span className="text-base font-mono font-black text-emerald-400">{avgScore} Pts</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* SEARCH & FILTERS ROW */}
+                    <div className="flex flex-col md:flex-row gap-3 text-left">
+                      {/* Search */}
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 text-white/30 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          id="leaderboard-search-input"
+                          type="text"
+                          placeholder="প্রতিযোগীর নাম বা রোল দিয়ে খুঁজুন..."
+                          value={leaderboardSearch}
+                          onChange={(e) => setLeaderboardSearch(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/40 border border-white/10 text-white font-sans font-medium text-xs focus:outline-none focus:border-purple-500 transition-all placeholder:text-white/20"
+                        />
+                      </div>
+
+                      {/* Class Filter Dropdown */}
+                      <div className="flex gap-2">
+                        <select
+                          id="leaderboard-class-select"
+                          value={leaderboardClassFilter}
+                          onChange={(e) => {
+                            playSound("tap");
+                            setLeaderboardClassFilter(e.target.value);
+                          }}
+                          className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white/80 font-bold focus:outline-none focus:border-purple-500 transition-all cursor-pointer"
+                        >
+                          <option value="All">সকল শ্রেণি (All Classes)</option>
+                          <option value="৩য়">৩য় শ্রেণি</option>
+                          <option value="৪র্থ">৪র্থ শ্রেণি</option>
+                          <option value="৫ম">৫ম শ্রেণি</option>
+                          <option value="৬ষ্ঠ">৬ষ্ঠ শ্রেণি</option>
+                        </select>
+
+                        {/* Event Filter Dropdown */}
+                        <select
+                          id="leaderboard-event-select"
+                          value={leaderboardEventFilter}
+                          onChange={(e) => {
+                            playSound("tap");
+                            setLeaderboardEventFilter(e.target.value);
+                          }}
+                          className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white/80 font-bold focus:outline-none focus:border-purple-500 transition-all cursor-pointer max-w-[150px]"
+                        >
+                          <option value="All">সকল কুইজ (All Events)</option>
+                          {events.map(ev => (
+                            <option key={ev.id} value={ev.id}>{ev.title.substring(0, 15)}...</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* TOP 3 PODIUM DISPLAY */}
+                    {(() => {
+                      // Process all entries
+                      const allEntries: { participant: EventParticipant; eventId: string; eventTitle: string }[] = [];
+                      events.forEach(evt => {
+                        evt.participants.forEach(p => {
+                          allEntries.push({
+                            participant: p,
+                            eventId: evt.id,
+                            eventTitle: evt.title,
+                          });
+                        });
+                      });
+
+                      // Apply search filter
+                      let filtered = allEntries.filter(entry => {
+                        const nameMatch = entry.participant.name.toLowerCase().includes(leaderboardSearch.toLowerCase());
+                        const rollMatch = entry.participant.roll.toLowerCase().includes(leaderboardSearch.toLowerCase());
+                        const searchMatch = nameMatch || rollMatch;
+
+                        const classMatch = leaderboardClassFilter === "All" || entry.participant.className.includes(leaderboardClassFilter);
+                        const eventMatch = leaderboardEventFilter === "All" || entry.eventId === leaderboardEventFilter;
+
+                        return searchMatch && classMatch && eventMatch;
+                      });
+
+                      // Sort by score desc
+                      filtered.sort((a, b) => b.participant.score - a.participant.score);
+
+                      if (filtered.length === 0) return null;
+
+                      // Grab Top 3
+                      const top3 = filtered.slice(0, 3);
+                      if (top3.length < 1) return null;
+
+                      // Order them physically as: 2nd, 1st, 3rd for standard visual podium
+                      const orderedPodium = [];
+                      if (top3[1]) orderedPodium.push({ rank: 2, ...top3[1] });
+                      orderedPodium.push({ rank: 1, ...top3[0] });
+                      if (top3[2]) orderedPodium.push({ rank: 3, ...top3[2] });
+
+                      return (
+                        <div id="leaderboard-podium" className="grid grid-cols-3 items-end gap-3 p-4 rounded-3xl bg-slate-950/40 border border-white/5 pt-8 pb-4 relative overflow-hidden my-1">
+                          
+                          {/* Ambient backdrop glow for 1st place */}
+                          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                          {orderedPodium.map((pod) => {
+                            const isPreset = (pod.participant.photoUrl || "").startsWith("avatar");
+                            const is1st = pod.rank === 1;
+                            const is2nd = pod.rank === 2;
+                            const is3rd = pod.rank === 3;
+
+                            let medalColor = "text-amber-400";
+                            let borderColor = "border-amber-400";
+                            let podiumBg = "bg-amber-500/10";
+                            let heightClass = "h-24";
+
+                            if (is2nd) {
+                              medalColor = "text-slate-300";
+                              borderColor = "border-slate-300/60";
+                              podiumBg = "bg-slate-300/5";
+                              heightClass = "h-20";
+                            } else if (is3rd) {
+                              medalColor = "text-amber-600";
+                              borderColor = "border-amber-600/60";
+                              podiumBg = "bg-amber-600/5";
+                              heightClass = "h-16";
+                            }
+
+                            return (
+                              <div key={pod.participant.id} className="flex flex-col items-center text-center">
+                                {/* Avatar */}
+                                <div className="relative mb-2">
+                                  <div className={`w-14 h-14 md:w-16 md:h-16 rounded-full border-2 ${borderColor} flex items-center justify-center overflow-hidden bg-black/40 relative shadow-xl`}>
+                                    {isPreset ? (
+                                      <span className="text-3xl select-none">
+                                        {pod.participant.photoUrl === "avatar1" ? "🎓" :
+                                         pod.participant.photoUrl === "avatar2" ? "🎒" :
+                                         pod.participant.photoUrl === "avatar3" ? "🚀" :
+                                         pod.participant.photoUrl === "avatar4" ? "🎨" :
+                                         pod.participant.photoUrl === "avatar5" ? "🦁" : "⚡"}
+                                      </span>
+                                    ) : (
+                                      <img src={pod.participant.photoUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                    )}
+                                  </div>
+                                  
+                                  {/* Rank Indicator */}
+                                  <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border border-black flex items-center justify-center text-[10px] font-mono font-black ${
+                                    is1st ? "bg-amber-400 text-black" :
+                                    is2nd ? "bg-slate-300 text-black" : "bg-amber-600 text-white"
+                                  } shadow-md`}>
+                                    #{pod.rank}
+                                  </div>
+
+                                  {/* Sparkle/Crown for 1st */}
+                                  {is1st && (
+                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 text-amber-400 animate-pulse">
+                                      <Crown className="w-5 h-5 fill-current" />
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Details */}
+                                <div className="max-w-[100px] md:max-w-xs text-center">
+                                  <span className="text-[10px] font-bold text-white leading-tight block truncate mb-0.5">{pod.participant.name.split(" ")[0]}</span>
+                                  <span className="text-[8px] text-white/40 block leading-none">শ্রেণি {pod.participant.className.split(" ")[0]}</span>
+                                </div>
+
+                                {/* Podium Pedestal */}
+                                <div className={`w-full ${heightClass} ${podiumBg} border-t-2 ${borderColor} rounded-t-xl mt-3 flex flex-col items-center justify-center p-1.5`}>
+                                  <span className={`text-[10px] font-mono font-black ${medalColor}`}>{pod.participant.score} Pts</span>
+                                  <span className="text-[7px] text-white/40 font-mono mt-1">{pod.participant.solvedCount}/৫টি</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        </div>
+                      );
+                    })()}
+
+                    {/* FULL LEADERS LIST */}
+                    <div className="flex flex-col gap-3 text-left">
+                      <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                        <span className="text-[10px] font-mono text-slate-400 uppercase font-bold flex items-center gap-1.5 text-left">
+                          <Users className="w-3.5 h-3.5 text-purple-400" />
+                          সকল প্রতিযোগীর তালিকা
+                        </span>
+                      </div>
+
+                      {(() => {
+                        // Aggregate all participants
+                        const allEntries: { participant: EventParticipant; eventId: string; eventTitle: string }[] = [];
+                        events.forEach(evt => {
+                          evt.participants.forEach(p => {
+                            allEntries.push({
+                              participant: p,
+                              eventId: evt.id,
+                              eventTitle: evt.title,
+                            });
+                          });
+                        });
+
+                        // Filter entries
+                        let filtered = allEntries.filter(entry => {
+                          const nameMatch = entry.participant.name.toLowerCase().includes(leaderboardSearch.toLowerCase());
+                          const rollMatch = entry.participant.roll.toLowerCase().includes(leaderboardSearch.toLowerCase());
+                          const searchMatch = nameMatch || rollMatch;
+
+                          const classMatch = leaderboardClassFilter === "All" || entry.participant.className.includes(leaderboardClassFilter);
+                          const eventMatch = leaderboardEventFilter === "All" || entry.eventId === leaderboardEventFilter;
+
+                          return searchMatch && classMatch && eventMatch;
+                        });
+
+                        // Sort globally
+                        filtered.sort((a, b) => b.participant.score - a.participant.score);
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="p-8 rounded-2xl bg-white/[0.01] border-2 border-dashed border-white/10 text-center flex flex-col items-center gap-3 py-10">
+                              <Users className="w-7 h-7 text-white/20" />
+                              <div>
+                                <h5 className="text-white font-bold text-xs">কোনো প্রতিযোগী পাওয়া যায়নি</h5>
+                                <p className="text-white/40 text-[10px] mt-1 font-sans">অনুসন্ধান বা ফিল্টারের মান পরিবর্তন করে পুনরায় চেষ্টা করুন।</p>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div id="leaderboard-players-list" className="flex flex-col gap-3 text-left">
+                            {filtered.map((entry, index) => {
+                              const p = entry.participant;
+                              const isPreset = (p.photoUrl || "").startsWith("avatar");
+                              
+                              return (
+                                <motion.div
+                                  key={`${entry.eventId}-${p.id}`}
+                                  className="p-3 rounded-2xl bg-slate-950 border border-white/5 flex items-center justify-between gap-3 hover:border-purple-500/20 transition-all group text-left"
+                                >
+                                  {/* Left section: rank, photo, name/details */}
+                                  <div className="flex items-center gap-3 text-left">
+                                    {/* Rank column */}
+                                    <div className="w-6 text-center shrink-0">
+                                      <span className={`text-xs font-mono font-black ${
+                                        index === 0 ? "text-amber-400" :
+                                        index === 1 ? "text-slate-300" :
+                                        index === 2 ? "text-amber-600" : "text-white/30"
+                                      }`}>
+                                        #{index + 1}
+                                      </span>
+                                    </div>
+
+                                    {/* Profile pic */}
+                                    <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/10 flex items-center justify-center text-lg overflow-hidden font-bold relative shrink-0">
+                                      {isPreset ? (
+                                        <span className="text-lg select-none">
+                                          {p.photoUrl === "avatar1" ? "🎓" :
+                                           p.photoUrl === "avatar2" ? "🎒" :
+                                           p.photoUrl === "avatar3" ? "🚀" :
+                                           p.photoUrl === "avatar4" ? "🎨" :
+                                           p.photoUrl === "avatar5" ? "🦁" : "⚡"}
+                                        </span>
+                                      ) : (
+                                        <img src={p.photoUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                      )}
+                                    </div>
+
+                                    <div className="text-left max-w-[120px] md:max-w-[200px]">
+                                      <h4 className="text-white font-bold text-xs group-hover:text-purple-400 transition-colors text-left leading-snug truncate">
+                                        {p.name}
+                                      </h4>
+                                      <span className="text-[9px] text-white/40 block mt-0.5 text-left truncate">
+                                        শ্রেণি: {p.className} • রোল: {p.roll}
+                                      </span>
+                                      <span className="text-[8px] text-purple-400/80 block mt-0.5 font-sans truncate" title={entry.eventTitle}>
+                                        ইভেন্ট: {entry.eventTitle.split(" ")[0]}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Right section: stats & actions */}
+                                  <div className="flex items-center gap-3">
+                                    <div className="text-right flex flex-col justify-center font-mono shrink-0">
+                                      <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">SCORE</span>
+                                      <span className="text-xs font-bold text-emerald-400">
+                                        {p.score} Pts
+                                      </span>
+                                      <span className="text-[8px] text-white/30 block leading-none font-mono mt-0.5">
+                                        {p.solvedCount}/৫
+                                      </span>
+                                    </div>
+
+                                    {/* Share and Certificate Trigger Actions */}
+                                    <div className="flex items-center gap-1">
+                                      {/* Certificate Trigger directly from Leaderboard */}
+                                      {p.totalAttempted > 0 && (
+                                        <button
+                                          onClick={() => {
+                                            playSound("tap");
+                                            setCertificateEventName(entry.eventTitle);
+                                            setSelectedCertificateParticipant(p);
+                                          }}
+                                          className="p-1.5 bg-amber-500/15 hover:bg-amber-500/30 border border-amber-500/30 rounded-lg text-amber-400 hover:text-white transition-all cursor-pointer"
+                                          title="সনদপত্র দেখুন"
+                                        >
+                                          <Award className="w-3.5 h-3.5 fill-current" />
+                                        </button>
+                                      )}
+
+                                      {/* Share Button */}
+                                      <button
+                                        onClick={async () => {
+                                          playSound("tap");
+                                          const shareText = `🏆 স্কুলের কুইজ উৎসব - গ্লোবাল মেধা তালিকা 🏆\n` +
+                                            `-----------------------------------------\n` +
+                                            `👤 প্রতিযোগী: ${p.name}\n` +
+                                            `📚 শ্রেণি: ${p.className} • রোল: ${p.roll}\n` +
+                                            `🎉 মেধা তালিকায় স্থান: #${index + 1}\n` +
+                                            `🎯 মোট কুইজ স্কোর: ${p.score} Pts (${p.solvedCount}/৫টি সঠিক উত্তর!)\n\n` +
+                                            `ডি-লিকন মেধা তালিকায় আমার স্থান দেখুন এবং আপনিও অংশ নিন! ✨\n` +
+                                            `${window.location.origin}`;
+
+                                          if (navigator.share) {
+                                            try {
+                                              await navigator.share({
+                                                title: "ডি-লিকন কুইজ মেধা তালিকা",
+                                                text: shareText,
+                                                url: window.location.origin,
+                                              });
+                                            } catch (err) {
+                                              console.log("Error sharing:", err);
+                                              // Fallback
+                                              navigator.clipboard.writeText(shareText).then(() => {
+                                                setEventShareCopied(true);
+                                                setTimeout(() => setEventShareCopied(false), 2000);
+                                              });
+                                            }
+                                          } else {
+                                            navigator.clipboard.writeText(shareText).then(() => {
+                                              setEventShareCopied(true);
+                                              setTimeout(() => setEventShareCopied(false), 2000);
+                                            });
+                                          }
+                                        }}
+                                        className="p-1.5 bg-purple-500/10 hover:bg-purple-500/25 rounded-lg text-purple-400 hover:text-white transition-all cursor-pointer"
+                                        title="শেয়ার করুন"
+                                      >
+                                        <Share2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                    {/* PERFORMANCE HISTORY VIEW */}
+                    {leaderboardSubTab === "performance" && (
+                      <div className="flex flex-col gap-6 flex-1 text-left">
+                        
+                        {/* Participant Selection Card */}
+                        <div className="p-6 rounded-3xl bg-slate-950/60 border border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                          <div>
+                            <span className="text-[10px] font-mono tracking-widest uppercase text-purple-400 block leading-none">
+                              Select Participant • প্রতিযোগী নির্বাচন
+                            </span>
+                            <h4 className="text-white font-sans font-black text-lg mt-1.5 block">
+                              Track Academic Progress & Evolution
+                            </h4>
+                            <p className="text-[11px] text-slate-400 mt-1 leading-relaxed font-sans">
+                              Choose a participant to analyze their interactive quiz score trajectories over past events.
+                            </p>
+                          </div>
+
+                          <div className="w-full sm:w-auto min-w-[240px]">
+                            <select
+                              value={selectedPerformanceParticipant}
+                              onChange={(e) => {
+                                playSound("tap");
+                                setSelectedPerformanceParticipant(e.target.value);
+                              }}
+                              className="w-full bg-black/80 border border-white/10 rounded-xl px-4 py-3 text-xs text-white font-bold font-sans focus:outline-none focus:border-purple-500 transition-all cursor-pointer"
+                            >
+                              {Array.from(
+                                new Set(events.flatMap(evt => evt.participants.map(p => p.name)))
+                              )
+                                .sort()
+                                .map((name) => (
+                                  <option key={name} value={name}>
+                                    {name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {(() => {
+                          if (!selectedPerformanceParticipant) {
+                            return (
+                              <div className="p-10 rounded-3xl bg-white/[0.01] border-2 border-dashed border-white/10 text-center py-16">
+                                <Users className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                                <h5 className="text-white font-bold text-sm">কোনো প্রতিযোগী নির্বাচিত হয়নি</h5>
+                                <p className="text-white/40 text-[11px] mt-1 font-sans">অনুগ্রহ করে উপরোক্ত তালিকা থেকে একজন প্রতিযোগী বেছে নিন।</p>
+                              </div>
+                            );
+                          }
+
+                          // Gather participation entries chronologically
+                          const participantEntries = events
+                            .map(evt => {
+                              const p = evt.participants.find(part => part.name === selectedPerformanceParticipant);
+                              if (!p) return null;
+                              return {
+                                eventId: evt.id,
+                                eventTitle: evt.title,
+                                eventDate: evt.date,
+                                participant: p,
+                              };
+                            })
+                            .filter((item): item is NonNullable<typeof item> => item !== null)
+                            .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+
+                          if (participantEntries.length === 0) {
+                            return (
+                              <div className="p-10 rounded-3xl bg-white/[0.01] border-2 border-dashed border-white/10 text-center py-16">
+                                <Users className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                                <h5 className="text-white font-bold text-sm">কোনো তথ্য পাওয়া যায়নি</h5>
+                                <p className="text-white/40 text-[11px] mt-1 font-sans">এই প্রতিযোগীর জন্য পূর্ববর্তী কোনো কুইজের রেকর্ড পাওয়া যায়নি।</p>
+                              </div>
+                            );
+                          }
+
+                          // Get latest entry details for profile card
+                          const latestEntry = participantEntries[participantEntries.length - 1];
+                          const isPreset = (latestEntry.participant.photoUrl || "").startsWith("avatar");
+
+                          // Aggregate summary statistics
+                          const totalPlayed = participantEntries.length;
+                          const totalScore = participantEntries.reduce((sum, item) => sum + item.participant.score, 0);
+                          const avgScore = Math.round(totalScore / totalPlayed);
+                          const highestScore = Math.max(...participantEntries.map(item => item.participant.score));
+                          const totalCorrect = participantEntries.reduce((sum, item) => sum + item.participant.solvedCount, 0);
+                          const totalQuestions = participantEntries.reduce((sum, item) => sum + item.participant.totalAttempted, 0);
+                          const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+
+                          // Prepare Recharts chart data
+                          const chartData = participantEntries.map(item => {
+                            // Strip parentheses content from event titles for cleaner x-axis labels
+                            const shortTitle = item.eventTitle.replace(/\s*\(.*\)/, "").trim();
+                            return {
+                              eventName: shortTitle,
+                              fullTitle: item.eventTitle,
+                              score: item.participant.score,
+                              solved: item.participant.solvedCount,
+                              date: item.eventDate,
+                            };
+                          });
+
+                          return (
+                            <div className="flex flex-col gap-6">
+                              
+                              {/* Participant Profile summary */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                
+                                {/* Info Card */}
+                                <div className="p-5 rounded-3xl bg-slate-950/40 border border-white/5 flex items-center gap-4 col-span-1">
+                                  <div className="w-16 h-16 rounded-2xl bg-purple-500/10 border-2 border-purple-500/30 flex items-center justify-center text-3xl overflow-hidden font-bold relative shrink-0">
+                                    {isPreset ? (
+                                      <span className="text-3xl select-none">
+                                        {latestEntry.participant.photoUrl === "avatar1" ? "🎓" :
+                                         latestEntry.participant.photoUrl === "avatar2" ? "🎒" :
+                                         latestEntry.participant.photoUrl === "avatar3" ? "🚀" :
+                                         latestEntry.participant.photoUrl === "avatar4" ? "🎨" :
+                                         latestEntry.participant.photoUrl === "avatar5" ? "🦁" : "⚡"}
+                                      </span>
+                                    ) : (
+                                      <img src={latestEntry.participant.photoUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                    )}
+                                  </div>
+                                  <div className="text-left overflow-hidden">
+                                    <h5 className="text-white font-sans font-black text-base truncate leading-tight uppercase">
+                                      {latestEntry.participant.name}
+                                    </h5>
+                                    <span className="text-[10px] text-slate-400 block mt-1 font-sans font-bold leading-none">
+                                      শ্রেণি: {latestEntry.participant.className}
+                                    </span>
+                                    <span className="text-[10px] text-purple-400 block mt-1.5 font-mono leading-none">
+                                      রোল আইডি: {latestEntry.participant.roll}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Summary Statistics */}
+                                <div className="p-5 rounded-3xl bg-slate-950/40 border border-white/5 col-span-2 grid grid-cols-4 gap-3">
+                                  <div className="flex flex-col justify-center text-center p-2 rounded-2xl bg-black/30 border border-white/5">
+                                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">মোট ইভেন্ট</span>
+                                    <span className="text-base font-mono font-black text-purple-400">{totalPlayed}</span>
+                                  </div>
+                                  <div className="flex flex-col justify-center text-center p-2 rounded-2xl bg-black/30 border border-white/5">
+                                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">গড় স্কোর</span>
+                                    <span className="text-base font-mono font-black text-emerald-400">{avgScore} Pts</span>
+                                  </div>
+                                  <div className="flex flex-col justify-center text-center p-2 rounded-2xl bg-black/30 border border-white/5">
+                                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">সর্বোচ্চ স্কোর</span>
+                                    <span className="text-base font-mono font-black text-amber-400">{highestScore}</span>
+                                  </div>
+                                  <div className="flex flex-col justify-center text-center p-2 rounded-2xl bg-black/30 border border-white/5">
+                                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider block mb-1">সঠিক উত্তর</span>
+                                    <span className="text-base font-mono font-black text-cyan-400">{accuracy}%</span>
+                                  </div>
+                                </div>
+
+                              </div>
+
+                              {/* RECHARTS SCORE EVOLUTION LINE CHART */}
+                              <div className="p-6 rounded-3xl bg-slate-950 border border-white/5 shadow-2xl flex flex-col gap-4">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="text-[9px] font-mono tracking-widest uppercase text-cyan-400 block leading-none">
+                                      Analytical Visualization • মেধা রেখাচিত্র
+                                    </span>
+                                    <h4 className="text-white font-sans font-black text-base mt-1 block">
+                                      Score Evolution Trajectory
+                                    </h4>
+                                  </div>
+                                  <span className="text-[9px] bg-purple-500/10 border border-purple-500/30 text-purple-400 px-2.5 py-1 rounded-full uppercase leading-none font-bold font-mono">
+                                    {totalPlayed > 1 ? `${totalPlayed} Events Tracked` : `Single Event Point`}
+                                  </span>
+                                </div>
+
+                                <div className="h-64 md:h-72 w-full mt-2 font-sans text-[10px]">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart
+                                      data={chartData}
+                                      margin={{ top: 20, right: 20, left: -20, bottom: 5 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                                      <XAxis 
+                                        dataKey="eventName" 
+                                        stroke="rgba(255,255,255,0.4)" 
+                                        tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 9 }}
+                                        tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                      />
+                                      <YAxis 
+                                        stroke="rgba(255,255,255,0.4)" 
+                                        domain={[0, (dataMax: number) => Math.max(600, Math.ceil(dataMax / 100) * 100)]}
+                                        tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 9 }}
+                                        tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                                      />
+                                      <Tooltip
+                                        contentStyle={{
+                                          backgroundColor: '#020617',
+                                          border: '1px solid rgba(255,255,255,0.1)',
+                                          borderRadius: '16px',
+                                          color: '#fff',
+                                          fontSize: '11px',
+                                          textAlign: 'left'
+                                        }}
+                                        labelStyle={{ fontWeight: 'bold', color: '#a855f7', marginBottom: '4px' }}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="score"
+                                        name="Score (Pts)"
+                                        stroke="#a855f7"
+                                        strokeWidth={3}
+                                        activeDot={{ r: 8, stroke: '#020617', strokeWidth: 2 }}
+                                        dot={{ r: 5, fill: '#d8b4fe', strokeWidth: 1 }}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+
+                              {/* DETAILED HISTORIC LIST */}
+                              <div className="flex flex-col gap-3">
+                                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold text-left block border-b border-white/5 pb-2">
+                                  Detailed Historic Quiz Record • কুইজ রেকর্ড
+                                </span>
+
+                                <div className="flex flex-col gap-2.5">
+                                  {participantEntries.map((item, idx) => {
+                                    return (
+                                      <div
+                                        key={item.eventId}
+                                        className="p-3.5 rounded-2xl bg-slate-950 border border-white/5 flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-purple-500/10 transition-all"
+                                      >
+                                        <div className="flex items-start gap-3">
+                                          <div className="w-8 h-8 rounded-xl bg-purple-500/5 border border-purple-500/20 flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold font-mono text-purple-400">
+                                            #{idx + 1}
+                                          </div>
+                                          <div className="text-left">
+                                            <h5 className="text-white font-sans font-bold text-xs leading-snug">
+                                              {item.eventTitle}
+                                            </h5>
+                                            <span className="text-[10px] text-slate-500 font-mono mt-1 block">
+                                              তারিখ: {item.eventDate}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 justify-between sm:justify-end border-t border-white/5 sm:border-0 pt-2 sm:pt-0">
+                                          <div className="text-left sm:text-right font-mono">
+                                            <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">SCORE</span>
+                                            <span className="text-xs font-bold text-emerald-400 block">{item.participant.score} Pts</span>
+                                          </div>
+                                          <div className="text-left sm:text-right font-mono">
+                                            <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">SOLVED</span>
+                                            <span className="text-xs font-bold text-purple-400 block">{item.participant.solvedCount}/৫</span>
+                                          </div>
+                                          <div className="text-left sm:text-right font-mono">
+                                            <span className="text-[8px] text-slate-500 block leading-none font-bold uppercase mb-0.5">ACCURACY</span>
+                                            <span className="text-xs font-bold text-cyan-400 block">
+                                              {item.participant.totalAttempted > 0 ? Math.round((item.participant.solvedCount / item.participant.totalAttempted) * 100) : 0}%
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                            </div>
+                          );
+                        })()}
+
+                      </div>
+                    )}
+
+                  </div>
+                )}
+
+                {/* TAB CONTENT 8: SETTINGS & SOUNDBOARD */}
+                {activeTab === "settings" && (
+                  <div className="flex flex-col gap-6 flex-1 text-left">
+                    
+                    {/* Header */}
+                    <div className="flex flex-col text-left">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-orange-400 mb-1">
+                        Settings & Preferences • সেটিংস ও পছন্দসমূহ
+                      </span>
+                      <h3 className="text-white font-display font-black text-3xl tracking-tighter leading-none uppercase text-left">
+                        CONTROL CENTER
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-2 text-left font-sans">
+                        Customize your interactive quiz environment, audio options, narration speech, and soundboard effects.
+                      </p>
+                    </div>
+
+                    {/* SOUNDBOARD PACK SELECTION */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl flex flex-col gap-4"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+                          <span className="text-[10px] font-mono tracking-widest uppercase text-orange-400 block leading-none">
+                            Soundboard Selection • সাউন্ডবোর্ড প্যাক
+                          </span>
+                        </div>
+                        <h4 className="text-white font-sans font-black text-xl mt-1.5 block">
+                          Interactive Audio Sound Packs
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1 font-sans leading-relaxed">
+                          Choose an acoustic aesthetic theme for interactive pop taps, correct answers, wrong selections, and unlocked badges.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                        {/* 1. Classic Spark */}
+                        <button
+                          onClick={() => {
+                            setSoundPack("classic");
+                            playSynthSound("correct", "classic");
+                          }}
+                          className={`p-4 rounded-2xl text-left border transition-all duration-200 relative overflow-hidden group ${
+                            soundPack === "classic"
+                              ? "bg-purple-500/10 border-purple-500 text-purple-300 animate-pulse-once"
+                              : "bg-black/30 border-white/5 text-white/70 hover:border-white/15 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-purple-400 leading-none block">
+                                Default • ডিফল্ট
+                              </span>
+                              <h5 className="font-sans font-black text-base text-white mt-1 leading-none">
+                                Classic Spark
+                              </h5>
+                            </div>
+                            <span className="text-[10px] font-mono bg-purple-500/10 border border-purple-500/25 text-purple-400 px-2 py-0.5 rounded-full uppercase leading-none font-bold">
+                              Classic
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-sans mt-2 leading-normal">
+                            Beautiful high-fidelity acoustic chime chords, perfect for a modern learning environment.
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("tap", "classic");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🔊 Tap
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("correct", "classic");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🎉 Win
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("incorrect", "classic");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              ❌ Lose
+                            </button>
+                          </div>
+                        </button>
+
+                        {/* 2. Retro Arcade */}
+                        <button
+                          onClick={() => {
+                            setSoundPack("retro");
+                            playSynthSound("correct", "retro");
+                          }}
+                          className={`p-4 rounded-2xl text-left border transition-all duration-200 relative overflow-hidden group ${
+                            soundPack === "retro"
+                              ? "bg-amber-500/10 border-amber-500 text-amber-300"
+                              : "bg-black/30 border-white/5 text-white/70 hover:border-white/15 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-amber-400 leading-none block">
+                                8-Bit • অ্যাথলেট
+                              </span>
+                              <h5 className="font-sans font-black text-base text-white mt-1 leading-none">
+                                Retro Arcade
+                              </h5>
+                            </div>
+                            <span className="text-[10px] font-mono bg-amber-500/10 border border-amber-500/25 text-amber-400 px-2 py-0.5 rounded-full uppercase leading-none font-bold">
+                              Arcade
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-sans mt-2 leading-normal">
+                            Bouncy 8-bit NES style square wave beeps, laser blips, and nostalgic video game melodies.
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("tap", "retro");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🔊 Tap
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("correct", "retro");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🎉 Win
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("incorrect", "retro");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              ❌ Lose
+                            </button>
+                          </div>
+                        </button>
+
+                        {/* 3. Nature Zen */}
+                        <button
+                          onClick={() => {
+                            setSoundPack("zen");
+                            playSynthSound("correct", "zen");
+                          }}
+                          className={`p-4 rounded-2xl text-left border transition-all duration-200 relative overflow-hidden group ${
+                            soundPack === "zen"
+                              ? "bg-emerald-500/10 border-emerald-500 text-emerald-300"
+                              : "bg-black/30 border-white/5 text-white/70 hover:border-white/15 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-emerald-400 leading-none block">
+                                Meditative • প্রাকৃতিক
+                              </span>
+                              <h5 className="font-sans font-black text-base text-white mt-1 leading-none">
+                                Nature Zen
+                              </h5>
+                            </div>
+                            <span className="text-[10px] font-mono bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 px-2 py-0.5 rounded-full uppercase leading-none font-bold">
+                              Zen
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-sans mt-2 leading-normal">
+                            Deep organic sine-wave vibrations, soft wooden blocks, and peaceful tibetan bowl resonance.
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("tap", "zen");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🔊 Tap
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("correct", "zen");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🎉 Win
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("incorrect", "zen");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              ❌ Lose
+                            </button>
+                          </div>
+                        </button>
+
+                        {/* 4. Futuristic Synth */}
+                        <button
+                          onClick={() => {
+                            setSoundPack("synth");
+                            playSynthSound("correct", "synth");
+                          }}
+                          className={`p-4 rounded-2xl text-left border transition-all duration-200 relative overflow-hidden group ${
+                            soundPack === "synth"
+                              ? "bg-cyan-500/10 border-cyan-500 text-cyan-300"
+                              : "bg-black/30 border-white/5 text-white/70 hover:border-white/15 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-[10px] font-mono font-bold tracking-wider uppercase text-cyan-400 leading-none block">
+                                Cyberpunk • কৃত্রিম বুদ্ধিমত্তা
+                              </span>
+                              <h5 className="font-sans font-black text-base text-white mt-1 leading-none">
+                                Futuristic Synth
+                              </h5>
+                            </div>
+                            <span className="text-[10px] font-mono bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 px-2 py-0.5 rounded-full uppercase leading-none font-bold">
+                              Sci-Fi
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-sans mt-2 leading-normal">
+                            High-tech cyber clicks, filter sweeps, modulated frequency waves, and futuristic radar beeps.
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-3">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("tap", "synth");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🔊 Tap
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("correct", "synth");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              🎉 Win
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playSynthSound("incorrect", "synth");
+                              }}
+                              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded text-[9px] font-mono text-white/80 uppercase font-bold"
+                            >
+                              ❌ Lose
+                            </button>
+                          </div>
+                        </button>
+                      </div>
+                    </motion.div>
+
+                    {/* GENERAL PREFERENCES / SYSTEM OPTIONS */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                      className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl flex flex-col gap-5 text-left"
+                    >
+                      <div>
+                        <span className="text-[10px] font-mono tracking-widest uppercase text-purple-400 block leading-none">
+                          System Parameters • সিস্টেম নিয়ন্ত্রণ
+                        </span>
+                        <h4 className="text-white font-sans font-black text-lg mt-1.5 block">
+                          General Customizations
+                        </h4>
+                      </div>
+
+                      <div className="flex flex-col gap-4">
+                        {/* Audio Toggle */}
+                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/20 border border-white/5">
+                          <div>
+                            <span className="text-white font-sans font-bold text-sm block">System Audio</span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Toggle all synthesizer click & transition sounds.</span>
+                          </div>
+                          <button
+                            onClick={toggleMute}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer ${
+                              !isMuted
+                                ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                                : "bg-red-500/10 border border-red-500/30 text-red-400"
+                            }`}
+                          >
+                            {!isMuted ? "🔈 Active (On)" : "🔇 Muted (Off)"}
+                          </button>
+                        </div>
+
+                        {/* TTS Narrator */}
+                        <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/20 border border-white/5">
+                          <div>
+                            <span className="text-white font-sans font-bold text-sm block">AI Voice Narration</span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Automated reading of curiosity hooks & stories.</span>
+                          </div>
+                          <button
+                            onClick={toggleVoice}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer ${
+                              isVoiceOn
+                                ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                                : "bg-white/5 border-white/5 text-white/40"
+                            }`}
+                          >
+                            {isVoiceOn ? "🗣️ Enabled" : "🔇 Disabled"}
+                          </button>
+                        </div>
+
+                        {/* Difficulty Selector */}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 rounded-2xl bg-black/20 border border-white/5 gap-3">
+                          <div>
+                            <span className="text-white font-sans font-bold text-sm block">Quiz Difficulty</span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">Define target depth of generated general knowledge.</span>
+                          </div>
+                          <div className="flex bg-black/40 p-0.5 rounded-xl border border-white/10 w-full sm:w-auto">
+                            {(["beginner", "intermediate", "advanced"] as const).map((level) => {
+                              const isActive = quizDifficulty === level;
+                              const labelBn = level === "beginner" ? "সহজ" : level === "intermediate" ? "মধ্যম" : "কঠিন";
+                              const activeColorClass = level === "beginner" ? "bg-emerald-500 text-black font-black" : level === "intermediate" ? "bg-orange-500 text-black font-black" : "bg-red-500 text-black font-black";
+                              return (
+                                <button
+                                  key={level}
+                                  onClick={() => {
+                                    playSound("tap");
+                                    setQuizDifficulty(level);
+                                  }}
+                                  className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-[9px] uppercase tracking-wider transition-all duration-200 ${
+                                    isActive ? activeColorClass : "text-white/50 hover:text-white"
+                                  }`}
+                                >
+                                  {labelBn}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                      </div>
+                    </motion.div>
+
+                    {/* STATISTICS SUMMARY CARDS */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="p-6 rounded-3xl bg-white/5 border border-white/10 shadow-xl flex flex-col gap-4 text-left"
+                    >
+                      <div>
+                        <span className="text-[10px] font-mono tracking-widest uppercase text-cyan-400 block leading-none">
+                          Profile Stats • ব্যবহারকারীর তথ্য
+                        </span>
+                        <h4 className="text-white font-sans font-black text-base mt-1.5 block">
+                          Current Accomplishments
+                        </h4>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                          <span className="text-[9px] text-slate-500 font-bold block uppercase">Points</span>
+                          <span className="text-lg font-mono font-black text-purple-400 block mt-1">{userStats.points}</span>
+                        </div>
+                        <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                          <span className="text-[9px] text-slate-500 font-bold block uppercase">Streak</span>
+                          <span className="text-lg font-mono font-black text-orange-400 block mt-1">{userStats.streak}🔥</span>
+                        </div>
+                        <div className="bg-black/40 p-3 rounded-2xl border border-white/5 text-center">
+                          <span className="text-[9px] text-slate-500 font-bold block uppercase">Badges</span>
+                          <span className="text-lg font-mono font-black text-amber-400 block mt-1">{userStats.badgesUnlocked.length}🏆</span>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    {/* Reset Button */}
+                    <div className="flex justify-end pt-2">
+                      <button
+                        onClick={() => {
+                          playSound("tap");
+                          if (confirm("Are you sure you want to reset all stats and data? This cannot be undone.")) {
+                            localStorage.clear();
+                            window.location.reload();
+                          }
+                        }}
+                        className="px-4 py-2 border border-red-500/20 hover:border-red-500/40 bg-red-500/5 hover:bg-red-500/10 text-red-400 rounded-xl text-xs font-sans font-bold transition-all cursor-pointer"
+                      >
+                        Reset All Game Data • ডেটা রিসেট করুন
+                      </button>
+                    </div>
+
+                  </div>
+                )}
+
               </div>
             )}
 
@@ -1578,6 +3959,40 @@ export default function App() {
               <Archive className="w-5 h-5" />
               <span className="text-[9px] font-sans font-bold">Archive</span>
             </button>
+
+            {/* Event Zone Screen */}
+            <button
+              id="tab-event-btn"
+              onClick={() => {
+                playSound("tap");
+                setActiveTab("event");
+                setActiveQuestion(null);
+                setQuizState("idle");
+              }}
+              className={`flex flex-col items-center justify-center gap-1 transition-all ${
+                activeTab === "event" ? "text-purple-400" : "text-white/40 hover:text-white/60"
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-[9px] font-sans font-bold">Event Zone</span>
+            </button>
+
+            {/* Leaderboard Screen */}
+            <button
+              id="tab-leaderboard-btn"
+              onClick={() => {
+                playSound("tap");
+                setActiveTab("leaderboard");
+                setActiveQuestion(null);
+                setQuizState("idle");
+              }}
+              className={`flex flex-col items-center justify-center gap-1 transition-all ${
+                activeTab === "leaderboard" ? "text-purple-400" : "text-white/40 hover:text-white/60"
+              }`}
+            >
+              <Crown className="w-5 h-5" />
+              <span className="text-[9px] font-sans font-bold">Leaderboard</span>
+            </button>
           </div>
 
         </div>
@@ -1593,6 +4008,155 @@ export default function App() {
         </div>
 
       </div>
+
+      {/* PRINTABLE CERTIFICATE OF EXCELLENCE MODAL OVERLAY */}
+      <AnimatePresence>
+        {selectedCertificateParticipant && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4 overflow-y-auto font-sans print:p-0 print:bg-white print:absolute print:inset-0">
+            
+            {/* Overlay controls (Hidden on Print) */}
+            <div className="absolute top-4 right-4 flex items-center gap-2 print:hidden z-20">
+              <button
+                onClick={() => {
+                  playSound("tap");
+                  window.print();
+                }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-xl text-black font-display font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-lg cursor-pointer"
+              >
+                <Award className="w-4 h-4 fill-current" />
+                <span>প্রিন্ট / সেভ • Print / Save PDF</span>
+              </button>
+              <button
+                onClick={() => {
+                  playSound("tap");
+                  setSelectedCertificateParticipant(null);
+                }}
+                className="p-2.5 bg-white/10 hover:bg-white/20 text-white hover:text-red-400 rounded-xl transition-all cursor-pointer"
+                title="বন্ধ করুন"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Certificate Inner Frame */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative bg-amber-50/5 text-[#2c1d0c] border-8 border-double border-amber-500/40 p-8 md:p-14 rounded-3xl w-full max-w-3xl aspect-[1.414/1] shadow-2xl flex flex-col justify-between items-center overflow-hidden print:shadow-none print:border-amber-500 print:rounded-none print:bg-white print:m-0 print:w-full print:h-full print:max-w-none print:aspect-none text-center select-text"
+              style={{
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
+                borderColor: "#d97706",
+                color: "#1e1b4b",
+                backgroundColor: "#fffdf9"
+              }}
+            >
+              {/* Vintage Watermark Logo behind content */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none select-none">
+                <Trophy className="w-[300px] h-[300px] text-[#b45309]" />
+              </div>
+
+              {/* Elegant border filigree pattern */}
+              <div className="absolute top-3 left-3 right-3 bottom-3 border border-amber-600/30 rounded-2xl pointer-events-none" />
+              <div className="absolute top-4 left-4 right-4 bottom-4 border-2 border-amber-600/10 rounded-xl pointer-events-none" />
+
+              {/* Filigree Corner Decorations */}
+              <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-amber-600" />
+              <div className="absolute top-6 right-6 w-8 h-8 border-t-2 border-r-2 border-amber-600" />
+              <div className="absolute bottom-6 left-6 w-8 h-8 border-b-2 border-l-2 border-amber-600" />
+              <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-amber-600" />
+
+              {/* 1. Header Badges & Institution */}
+              <div className="flex flex-col items-center gap-1 mt-2">
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 border border-amber-200 mb-2 print:border-amber-500 shadow-md">
+                  <Trophy className="w-6 h-6 fill-current" />
+                </div>
+                <span className="text-[10px] font-mono tracking-[0.25em] text-amber-700/80 uppercase font-black">
+                  {certificateEventName || "কুইজ উৎসব ২০২৬"}
+                </span>
+                <h4 className="text-xl font-display font-black tracking-tight text-indigo-950 uppercase leading-none mt-1">
+                  ডি-লিকন মেধা মূল্যায়ন উৎসব
+                </h4>
+                <div className="w-24 h-[2px] bg-gradient-to-r from-transparent via-amber-600 to-transparent mt-1.5" />
+              </div>
+
+              {/* 2. Main Title */}
+              <div className="flex flex-col items-center my-2">
+                <span className="text-[11px] font-mono tracking-widest text-slate-500 uppercase font-bold">
+                  • মেধা প্রশংসাপত্র • Certificate of Excellence •
+                </span>
+                <h2 className="text-3xl md:text-4xl font-display font-black text-amber-700 mt-1 uppercase tracking-tight">
+                  মেধা প্রশংসাপত্র
+                </h2>
+              </div>
+
+              {/* 3. Certificate Statement Content */}
+              <div className="max-w-xl text-center flex flex-col gap-3">
+                <p className="text-xs text-slate-500/90 font-sans leading-relaxed">
+                  অত্যಂತ আনন্দের সাথে প্রত্যয়ন করা যাচ্ছে যে,
+                </p>
+                
+                {/* Participant Name Badge */}
+                <div className="py-1 px-4 border-b-2 border-indigo-950/20 max-w-xs mx-auto mb-1">
+                  <h3 className="text-xl md:text-2xl font-bold text-indigo-950 tracking-tight font-sans">
+                    {selectedCertificateParticipant.name}
+                  </h3>
+                </div>
+
+                {/* Student Roll and Class details */}
+                <p className="text-xs text-indigo-950/80 font-sans leading-relaxed font-semibold">
+                  শ্রেণি: <span className="text-amber-700 font-bold">{selectedCertificateParticipant.className}</span> • রোল: <span className="text-amber-700 font-bold">{selectedCertificateParticipant.roll}</span>
+                </p>
+
+                <p className="text-xs text-slate-500 leading-relaxed font-sans max-w-md mx-auto">
+                  ডি-লিকন (D-Likon) কুইজ উৎসবে সক্রিয়ভাবে অংশগ্রহণ করে এবং ৫টি প্রশ্নের মধ্যে <span className="text-indigo-950 font-black">{selectedCertificateParticipant.solvedCount}টি প্রশ্নের সঠিক উত্তর</span> দিয়ে কৃতিত্বের সাথে <span className="text-emerald-600 font-black">{selectedCertificateParticipant.score} পয়েন্ট</span> অর্জন করেছে।
+                </p>
+
+                <p className="text-xs text-slate-500/90 font-sans leading-relaxed">
+                  তার এই অনন্য মেধা ও উজ্জ্বল সাফল্য কামনায় আমরা গর্বিত ও আনন্দিত।
+                </p>
+              </div>
+
+              {/* 4. Footer signatures and seals */}
+              <div className="w-full flex items-end justify-between px-6 mt-6 pt-4 border-t border-slate-200">
+                {/* Left Signature */}
+                <div className="flex flex-col items-center">
+                  <div className="h-6 w-24 flex items-center justify-center overflow-hidden">
+                    <span className="text-xs font-serif italic text-slate-400 font-bold leading-none select-none">D-Likon Admin</span>
+                  </div>
+                  <div className="w-28 h-[1px] bg-slate-300 mt-1" />
+                  <span className="text-[9px] text-slate-500 font-mono font-bold uppercase mt-1">Conductor / পরিচালক</span>
+                </div>
+
+                {/* Center Official Gold Seal */}
+                <div className="relative flex items-center justify-center w-14 h-14 bg-amber-500 text-amber-50 border-4 border-amber-600 rounded-full shadow-lg shadow-amber-500/10">
+                  <div className="absolute inset-1 border border-dashed border-amber-100 rounded-full" />
+                  <Award className="w-6 h-6 fill-current animate-pulse" />
+                  {/* Ribbon tails */}
+                  <div className="absolute -bottom-3 left-1 w-3 h-5 bg-amber-600 -rotate-12 rounded-b z-[-1]" />
+                  <div className="absolute -bottom-3 right-1 w-3 h-5 bg-amber-600 rotate-12 rounded-b z-[-1]" />
+                </div>
+
+                {/* Right Signature */}
+                <div className="flex flex-col items-center">
+                  <div className="h-6 w-24 flex items-center justify-center overflow-hidden">
+                    <span className="text-xs font-serif italic text-slate-400 font-bold leading-none select-none">Headmaster</span>
+                  </div>
+                  <div className="w-28 h-[1px] bg-slate-300 mt-1" />
+                  <span className="text-[9px] text-slate-500 font-mono font-bold uppercase mt-1">Principal / প্রধান শিক্ষক</span>
+                </div>
+              </div>
+
+              {/* Print bottom-center metadata info */}
+              <div className="text-[7px] text-slate-400 font-mono tracking-wider uppercase mt-4 block">
+                ভেরিফিকেশন কোড: DL-{selectedCertificateParticipant.id.toUpperCase()} • তারিখ: {new Date(selectedCertificateParticipant.joinedAt || Date.now()).toLocaleDateString("bn-BD")}
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

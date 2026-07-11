@@ -8,6 +8,7 @@ export interface Question {
   eurekaExplanation: string;
   animationType: string;
   category: string;
+  difficulty?: "beginner" | "intermediate" | "advanced";
 }
 
 export interface Category {
@@ -51,4 +52,24 @@ export interface DailyChallenge {
   eurekaExplanation: string;
   animationType: string;
   category: string;
+}
+
+export interface EventParticipant {
+  id: string;
+  name: string;
+  className: string;
+  roll: string;
+  photoUrl: string; // Base64 data URI or avatar name
+  score: number;
+  solvedCount: number;
+  totalAttempted: number;
+  joinedAt: string;
+}
+
+export interface EventSession {
+  id: string;
+  title: string;
+  date: string;
+  participants: EventParticipant[];
+  isActive: boolean;
 }

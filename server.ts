@@ -30,7 +30,7 @@ if (apiKey) {
 
 // REST API for question generation
 app.post("/api/generate-question", async (req, res) => {
-  const { category, topic, language = "bn-en" } = req.body;
+  const { category, topic, difficulty = "beginner", language = "bn-en" } = req.body;
 
   if (!ai) {
     return res.status(200).json({
@@ -42,7 +42,13 @@ app.post("/api/generate-question", async (req, res) => {
 
   try {
     const prompt = `Create a thrilling, curiosity-driven General Knowledge quiz question for students about the topic: "${topic || category}".
-    The question MUST follow the "Mystery Box" concept. It must have:
+    The question MUST follow the "Mystery Box" concept and be tailored to the "${difficulty}" difficulty level.
+    Guidelines for difficulty:
+    - "beginner": Simple, widely known interesting facts with highly engaging clues, suitable for elementary/early learners.
+    - "intermediate": Requires some logical thinking, curiosity, or basic junior school science/geography/history context.
+    - "advanced": Truly challenging or rare facts requiring deeper analytical, historical, or scientific insights.
+    
+    It must have:
     1. A "curiosityHook" - A highly intriguing, mysterious clue or riddle (1-2 sentences) that describes the fact before naming it or asking the direct question. It must spark intense curiosity.
     2. A "question" - The actual question.
     3. "options" - Four highly plausible but creative options.
@@ -50,8 +56,9 @@ app.post("/api/generate-question", async (req, res) => {
     5. "eurekaExplanation" - A mind-blowing "Eureka!" (Aha!) story/explanation that reveals the correct answer and explains the fascinating context in a way that is impossible to forget. Include emotional storytelling.
     6. "animationType" - A visual keyword to guide a custom CSS/Canvas illustration. Choose one of: "space_orbit", "chemistry_bond", "heart_beat", "dinosaur_walk", "dna_helix", "nature_forest", "volcano_lava", "ancient_pyramid", "physics_light", "electric_spark".
     7. "factTitle" - A short, dramatic title of the fact (e.g. "The Backward Flyer", "The Blue Blood King").
+    8. "difficulty" - Set exactly to the requested value: "${difficulty}".
     
-    Ensure all fields (except animationType) are provided in Bengali with English transliterations/translations so it's readable for Bengali and English learners.
+    Ensure all fields (except animationType and difficulty) are provided in Bengali with English transliterations/translations so it's readable for Bengali and English learners.
     Example:
     Curiosity Hook: "এটি এমন একটি অদ্ভুত পাখি যা কেবল সামনের দিকেই উড়তে পারে না, বরং বাতাসে স্থির থাকতে পারে এবং পিছনের দিকেও উড়তে পারে! (This unique bird can fly backwards!)"`;
 
@@ -72,9 +79,10 @@ app.post("/api/generate-question", async (req, res) => {
             },
             answerIndex: { type: Type.INTEGER },
             eurekaExplanation: { type: Type.STRING },
-            animationType: { type: Type.STRING }
+            animationType: { type: Type.STRING },
+            difficulty: { type: Type.STRING }
           },
-          required: ["factTitle", "curiosityHook", "question", "options", "answerIndex", "eurekaExplanation", "animationType"]
+          required: ["factTitle", "curiosityHook", "question", "options", "answerIndex", "eurekaExplanation", "animationType", "difficulty"]
         }
       }
     });
