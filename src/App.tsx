@@ -49,7 +49,13 @@ import {
   X,
   Crown,
   Timer,
-  Settings
+  Settings,
+  Mic,
+  Tv,
+  Monitor,
+  CheckCircle2,
+  XCircle,
+  AlertCircle
 } from "lucide-react";
 
 import { CATEGORIES, BADGES, DEFAULT_QUESTIONS } from "./data";
@@ -79,11 +85,36 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [initPercent, setInitPercent] = useState(0);
 
+  // Set browser title on mount
+  useEffect(() => {
+    document.title = "ডিলিকন জিনিয়াস কুইক কুইজ";
+  }, []);
+
   // Layout Controls
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<"home" | "categories" | "badges" | "ai_sandbox" | "archive" | "event" | "leaderboard">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "categories" | "badges" | "ai_sandbox" | "archive" | "event" | "leaderboard" | "host">("home");
+
+  // Perspective Mode: GK (General Knowledge) or SK (Special Knowledge)
+  const [activityPerspective, setActivityPerspective] = useState<"gk" | "sk">(() => {
+    try {
+      const saved = localStorage.getItem("dlikon_activity_perspective");
+      if (saved === "gk" || saved === "sk") return saved;
+    } catch (e) {
+      console.warn("Could not read activity perspective", e);
+    }
+    return "sk"; // Default to "Special Knowledge" per user's prompt ("This is the era of Special Knowledge")
+  });
+
+  // Save selected perspective to localStorage on modification
+  useEffect(() => {
+    try {
+      localStorage.setItem("dlikon_activity_perspective", activityPerspective);
+    } catch (e) {
+      console.warn("Could not save activity perspective", e);
+    }
+  }, [activityPerspective]);
 
   // User Gamified States (loaded from localStorage with safe default fallback)
   const [userStats, setUserStats] = useState<UserStats>(() => {
@@ -361,6 +392,20 @@ export default function App() {
   const [newParticipantRoll, setNewParticipantRoll] = useState("");
   const [newParticipantPhoto, setNewParticipantPhoto] = useState("avatar1"); // base64 string OR preset avatar ID
 
+  // Host Stage & Projector Mode States
+  const [hostSelectedParticipant, setHostSelectedParticipant] = useState<string>("সাদিয়া রহমান (Sadia Rahman)");
+  const [hostSelectedQuestion, setHostSelectedQuestion] = useState<Question | null>(null);
+  const [hostParticipants, setHostParticipants] = useState<string[]>([
+    "সাদিয়া রহমান (Sadia Rahman)",
+    "আরিফ বিল্লাহ (Arif Billah)",
+    "তাহসিন হাসান (Tahsin Hassan)",
+    "নুসরাত জাহান (Nusrat Jahan)",
+    "সাইমন ইসলাম (Saimon Islam)"
+  ]);
+  const [hostStateStatus, setHostStateStatus] = useState<"idle" | "assigned" | "correct" | "incorrect">("idle");
+  const [hostIsProjectorMode, setHostIsProjectorMode] = useState<boolean>(false);
+  const [hostNewParticipantName, setHostNewParticipantName] = useState("");
+
   // Time Attack Mode Countdown Timer
   useEffect(() => {
     if (eventQuizState === "playing" && eventTimeAttack && eventQuizSelectedAnswer === null) {
@@ -469,11 +514,24 @@ export default function App() {
     const participant = activeEvt?.participants.find(p => p.id === participantId);
     if (!participant) return;
 
-    // Get 5 random questions from DEFAULT_QUESTIONS matching chosen difficulty
-    let filtered = DEFAULT_QUESTIONS.filter((q) => q.difficulty === quizDifficulty);
+    // Filter questions by selected perspective (GK vs SK)
+    const pool = DEFAULT_QUESTIONS.filter(q => {
+      if (activityPerspective === "gk") {
+        return q.category === "class3_gk";
+      } else {
+        return q.category !== "class3_gk";
+      }
+    });
+
+    // Get 5 random questions from matching chosen difficulty
+    let filtered = pool.filter((q) => q.difficulty === quizDifficulty);
     if (filtered.length < 5) {
-      const extra = DEFAULT_QUESTIONS.filter((q) => q.difficulty !== quizDifficulty);
+      const extra = pool.filter((q) => q.difficulty !== quizDifficulty);
       filtered = [...filtered, ...extra];
+    }
+    // Final fallback if filtered pool is empty
+    if (filtered.length === 0) {
+      filtered = pool.length > 0 ? pool : DEFAULT_QUESTIONS;
     }
     const shuffled = [...filtered].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 5);
@@ -1100,6 +1158,25 @@ export default function App() {
                   {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                 </button>
 
+                {/* Host Mode Toggle */}
+                <button
+                  onClick={() => {
+                    playSound("tap");
+                    setActiveTab(activeTab === "host" ? "home" : "host");
+                    setActiveQuestion(null);
+                    setQuizState("idle");
+                  }}
+                  className={`p-1.5 rounded-lg border transition-all flex items-center gap-1 ${
+                    activeTab === "host"
+                      ? "bg-amber-500/20 border-amber-500/40 text-amber-400 font-bold"
+                      : "bg-white/5 border-white/5 text-amber-400/80 hover:text-amber-400"
+                  }`}
+                  title="Host & Projector Mode • সঞ্চালক ও প্রজেক্টর"
+                >
+                  <Mic className="w-3.5 h-3.5 animate-pulse" />
+                  <span className="text-[9px] font-sans font-bold hidden sm:inline">STAGE</span>
+                </button>
+
                 {/* Settings Toggle */}
                 <button
                   onClick={() => {
@@ -1334,8 +1411,169 @@ export default function App() {
               // GENERAL DASHBOARD (HOME, CATEGORIES, BADGES, AI SANDBOX)
               <div className="flex flex-col gap-5 flex-1">
                 
-                {/* DAILY MOMENTUM CHALLENGE HERO */}
+                {/* DUAL PERSPECTIVE SELECTION PANELS */}
                 {activeTab === "home" && (
+                  <motion.div
+                    initial={{ y: -15, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="p-1 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-1 shadow-2xl relative overflow-hidden"
+                  >
+                    {/* GK Button */}
+                    <button
+                      onClick={() => {
+                        playSound("tap");
+                        setActivityPerspective("gk");
+                      }}
+                      className={`flex-1 flex flex-col items-center justify-center py-3.5 px-2.5 rounded-xl transition-all duration-300 relative select-none cursor-pointer ${
+                        activityPerspective === "gk"
+                          ? "bg-amber-500 text-black shadow-lg font-black"
+                          : "text-white/40 hover:text-white/60 font-bold"
+                      }`}
+                      style={{ minHeight: "52px" }}
+                    >
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <Award className={`w-4 h-4 ${activityPerspective === "gk" ? "fill-current" : ""}`} />
+                        <span className="text-xs uppercase tracking-wider font-display">১। GK জেনারেল নলেজ</span>
+                      </div>
+                      <span className="text-[9px] mt-0.5 opacity-80 font-sans tracking-tight block">কন্টেস্ট ও মেধা মূল্যায়ন জোন</span>
+                      {activityPerspective === "gk" && (
+                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-black rounded-full" />
+                      )}
+                    </button>
+
+                    {/* Divider Line */}
+                    <div className="h-8 w-[1px] bg-white/10" />
+
+                    {/* SK Button */}
+                    <button
+                      onClick={() => {
+                        playSound("tap");
+                        setActivityPerspective("sk");
+                      }}
+                      className={`flex-1 flex flex-col items-center justify-center py-3.5 px-2.5 rounded-xl transition-all duration-300 relative select-none cursor-pointer ${
+                        activityPerspective === "sk"
+                          ? "bg-indigo-500 text-white shadow-lg font-black"
+                          : "text-white/40 hover:text-white/60 font-bold"
+                      }`}
+                      style={{ minHeight: "52px" }}
+                    >
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <Sparkles className={`w-4 h-4 ${activityPerspective === "sk" ? "fill-current" : ""}`} />
+                        <span className="text-xs uppercase tracking-wider font-display">২। SK স্পেশাল নলেজ</span>
+                      </div>
+                      <span className="text-[9px] mt-0.5 opacity-80 font-sans tracking-tight block">রহস্য বাক্স ও কৌতূহলের পথ</span>
+                      {activityPerspective === "sk" && (
+                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-white rounded-full" />
+                      )}
+                    </button>
+                  </motion.div>
+                )}
+
+                {/* GK PERSPECTIVE CONTENT */}
+                {activeTab === "home" && activityPerspective === "gk" && (
+                  <div className="flex flex-col gap-5">
+                    
+                    {/* GK Contest Hero Card */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      className="p-6 rounded-3xl bg-amber-500/10 border-2 border-amber-500/30 shadow-2xl relative overflow-hidden flex flex-col gap-4"
+                    >
+                      {/* Gold Accent Blur */}
+                      <div className="absolute -right-20 -top-20 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-full border border-amber-500/30 text-[10px] font-bold tracking-wider uppercase">
+                          GK Contest Center • সাধারণ জ্ঞান উৎসব
+                        </span>
+                      </div>
+
+                      <div>
+                        <h3 className="text-white font-display font-black text-3xl tracking-tighter leading-tight uppercase">
+                          কুইজ কন্টেস্ট তৈরী ও পরিচালনা করুন!
+                        </h3>
+                        <p className="text-white/60 text-xs mt-2 font-sans leading-relaxed font-medium">
+                          ঐতিহ্যবাহী সাধারণ জ্ঞান প্রতিযোগিতা এবং কুইজ উৎসবের কন্টেস্ট তৈরি করুন। সঞ্চালকের ভূমিকা নিয়ে বড় পর্দায় শিক্ষার্থীদের সঠিক উত্তর চিহ্নিত করার অভিনব প্রযুক্তি।
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mt-1.5 font-sans">
+                        <button
+                          onClick={() => {
+                            playSound("tap");
+                            setActiveTab("event");
+                          }}
+                          className="px-4 py-3 bg-amber-500 hover:bg-amber-600 rounded-xl text-black font-display font-black text-xs uppercase tracking-tighter text-center shadow-lg transition-all hover:scale-[1.02] cursor-pointer"
+                        >
+                          🏆 কন্টেস্ট তৈরি করুন
+                        </button>
+                        <button
+                          onClick={() => {
+                            playSound("tap");
+                            setActiveTab("host");
+                          }}
+                          className="px-4 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-white font-display font-black text-xs uppercase tracking-tighter text-center border border-white/10 transition-all hover:scale-[1.02] cursor-pointer"
+                        >
+                          🎙️ সঞ্চালক উইন্ডো
+                        </button>
+                      </div>
+                    </motion.div>
+
+                    {/* Individual GK Play Zone Title */}
+                    <div className="flex flex-col mt-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400 mb-1">
+                        Individual Study • একক মূল্যায়ন
+                      </span>
+                      <h3 className="text-white font-display font-black text-2xl tracking-tighter leading-none uppercase">
+                        পাঠ্যবই ভিত্তিক সাধারণ জ্ঞান
+                      </h3>
+                    </div>
+
+                    {/* Class 3 GK category Card */}
+                    {CATEGORIES.filter(c => c.id === "class3_gk").map((category) => (
+                      <motion.div
+                        key={category.id}
+                        whileHover={{ x: 4, scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
+                        onClick={() => handleSelectCategory(category)}
+                        className={`p-6 rounded-3xl bg-amber-500/5 border-2 border-amber-500/30 hover:border-amber-500 transition-all group relative overflow-hidden flex items-center justify-between shadow-lg shadow-amber-500/5 cursor-pointer`}
+                      >
+                        <div className="flex items-center gap-4 pl-1">
+                          <div className={`p-3.5 rounded-xl bg-amber-500/15 text-amber-400 group-hover:scale-110 transition-transform`}>
+                            <CategoryIcon name={category.icon} size={24} />
+                          </div>
+                          <div>
+                            <h4 className={`font-display font-black text-2xl text-amber-400 group-hover:text-white transition-colors mb-0.5`}>
+                              {category.bengaliName}
+                            </h4>
+                            <span className="text-xs font-bold tracking-wider uppercase text-white/50 group-hover:text-white/80 transition-colors">
+                              {category.name} • {category.bengaliVibe}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <ChevronRight className={`w-5 h-5 text-amber-400 group-hover:text-white group-hover:translate-x-1 transition-all`} />
+                        </div>
+                      </motion.div>
+                    ))}
+
+                    {/* Easy Guide banner */}
+                    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-left flex gap-3.5 items-start mt-2">
+                      <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg shrink-0 mt-0.5">
+                        <Award className="w-4 h-4" />
+                      </div>
+                      <div className="text-xs leading-relaxed font-sans text-white/60">
+                        <strong className="text-white block mb-0.5 font-bold">💡 কুইজ মডারেটর টিপস:</strong>
+                        সঞ্চালক বড় পর্দায় শিক্ষার্থীদের নাম ধরে অভিনন্দন জানাতে প্রথমে <span className="text-amber-400 font-bold">Contest</span> ট্যাবে গিয়ে শিক্ষার্থীদের তালিকাযুক্ত করুন। এরপর <span className="text-amber-400 font-bold">Host</span> স্টেজ থেকে প্রশ্ন বরাদ্দ করে কুইজ পরিচালনা শুরু করুন!
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* DAILY MOMENTUM CHALLENGE HERO */}
+                {activeTab === "home" && activityPerspective === "sk" && (
                   <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -1362,7 +1600,7 @@ export default function App() {
                     <button
                       onClick={() => handleSelectCategory(CATEGORIES[1])}
                       id="unlock_daily_box_btn"
-                      className="self-start px-8 py-4 bg-orange-500 hover:bg-orange-600 rounded-xl text-xs font-display font-black uppercase tracking-tighter text-black shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.02]"
+                      className="self-start px-8 py-4 bg-orange-500 hover:bg-orange-600 rounded-xl text-xs font-display font-black uppercase tracking-tighter text-black shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.02] cursor-pointer"
                     >
                       <span>রহস্য বাক্স খুলুন • Unwrap Box</span>
                     </button>
@@ -1370,7 +1608,7 @@ export default function App() {
                 )}
 
                 {/* TAB CONTENT 1: HOME DISCOVER */}
-                {activeTab === "home" && (
+                {activeTab === "home" && activityPerspective === "sk" && (
                   <div className="flex flex-col gap-6">
                     {/* DIFFICULTY LEVEL SELECTOR */}
                     <motion.div
@@ -1399,7 +1637,7 @@ export default function App() {
                                 playSound("tap");
                                 setQuizDifficulty(level);
                               }}
-                              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-200 ${
+                              className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-[10px] uppercase tracking-wider transition-all duration-200 cursor-pointer ${
                                 isActive ? activeColorClass : "text-white/60 hover:text-white hover:bg-white/5"
                               }`}
                             >
@@ -1422,7 +1660,7 @@ export default function App() {
 
                     {/* Category List */}
                     <div className="flex flex-col gap-3.5">
-                      {CATEGORIES.map((category) => (
+                      {CATEGORIES.filter((category) => category.id !== "class3_gk").map((category) => (
                         <motion.div
                           key={category.id}
                           whileHover={{ x: 4, scale: 1.01 }}
@@ -1453,9 +1691,19 @@ export default function App() {
 
                     {/* Bottom general play trigger */}
                     <button
-                      onClick={handleStartRandomBox}
+                      onClick={() => {
+                        playSound("tap");
+                        // Pick random question from Special Knowledge only
+                        const pool = DEFAULT_QUESTIONS.filter(q => q.category !== "class3_gk" && q.difficulty === quizDifficulty);
+                        const randomQ = pool[Math.floor(Math.random() * pool.length)] || DEFAULT_QUESTIONS[0];
+                        const categoryProfile = CATEGORIES.find((c) => c.id === randomQ.category) || CATEGORIES[0];
+                        setActiveCategory(categoryProfile);
+                        setActiveQuestion(randomQ);
+                        setQuizState("idle");
+                        setUserAnswerIndex(null);
+                      }}
                       id="random_play_start_btn"
-                      className="w-full py-4.5 bg-orange-500 hover:bg-orange-600 rounded-2xl text-black font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.01]"
+                      className="w-full py-4.5 bg-orange-500 hover:bg-orange-600 rounded-2xl text-black font-display font-black text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl shadow-orange-500/20 transition-all hover:scale-[1.01] cursor-pointer"
                     >
                       <Sparkles className="w-5 h-5 fill-current" />
                       <span>রেন্ডম প্রশ্ন খেলুন • Instant Random Play</span>
@@ -3868,6 +4116,786 @@ export default function App() {
                         Reset All Game Data • ডেটা রিসেট করুন
                       </button>
                     </div>
+
+                  </div>
+                )}
+
+                {/* TAB CONTENT: HOST & STAGE CONTROL BOARD */}
+                {activeTab === "host" && (
+                  <div className="flex flex-col gap-6 flex-1 text-left relative">
+                    {/* Header */}
+                    {!hostIsProjectorMode && (
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex flex-col text-left">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-400 mb-1">
+                            Live Stage & Projector System • সঞ্চালক ও প্রজেক্টর ভিউ
+                          </span>
+                          <h3 className="text-white font-display font-black text-3xl tracking-tighter leading-none uppercase text-left">
+                            STAGE CONTROLLER
+                          </h3>
+                          <p className="text-[11px] text-slate-400 mt-2 text-left font-sans font-medium leading-relaxed">
+                            মঞ্চে কুইজ পরিচালনার জন্য বিশেষ প্যানেল। প্রজেক্টরে বড় পর্দায় দেখাতে নিচে <b>"বড় পর্দা মোড"</b> অন করুন।
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            playSound("tap");
+                            setHostIsProjectorMode(true);
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-600 hover:to-orange-600 rounded-xl font-display font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-orange-500/10 cursor-pointer self-start sm:self-center"
+                        >
+                          <Tv className="w-4 h-4" />
+                          <span>বড় পর্দা মোড • PROJECTOR ONLY</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* TWO VIEW MODES */}
+                    {hostIsProjectorMode ? (
+                      /* FULL SCREEN PROJECTOR ONLY VIEW (CINEMATIC DISPLAY FOR BIG SCREEN) */
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="fixed inset-0 z-50 bg-slate-950 flex flex-col justify-between p-8 font-sans"
+                        id="live-projector-fullscreen"
+                      >
+                        {/* Top floating control to exit */}
+                        <div className="flex items-center justify-between opacity-30 hover:opacity-100 transition-all">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={dLikonLogo}
+                              alt="Logo"
+                              className="w-12 h-12 rounded-xl border border-orange-500/30 object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="text-left">
+                              <h4 className="text-white font-black text-lg tracking-tight font-display leading-none">ডি-লিকন মেধা মূল্যায়ন</h4>
+                              <span className="text-[9px] text-orange-400 font-bold uppercase tracking-widest">Live Stage Event</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              playSound("tap");
+                              setHostIsProjectorMode(false);
+                            }}
+                            className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl text-white text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <Minimize2 className="w-4 h-4" />
+                            <span>কন্ট্রোল প্যানেলে ফিরুন</span>
+                          </button>
+                        </div>
+
+                        {/* Center Stage Display Card */}
+                        <div className="flex flex-col items-center justify-center flex-1 max-w-4xl mx-auto w-full py-12">
+                          <AnimatePresence mode="wait">
+                            {hostStateStatus === "idle" && (
+                              /* 1. Splash / Waiting Screen */
+                              <motion.div
+                                key="projector-idle"
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                className="text-center flex flex-col items-center gap-6"
+                              >
+                                <motion.img
+                                  src={dLikonLogo}
+                                  alt="D-Likon Logo"
+                                  className="w-48 h-48 rounded-full border-4 border-amber-400 shadow-2xl shadow-amber-500/20 object-cover"
+                                  animate={{ rotate: [0, 360] }}
+                                  transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="space-y-3">
+                                  <h2 className="text-5xl font-display font-black text-amber-400 tracking-tight leading-none bg-gradient-to-r from-amber-300 via-orange-400 to-pink-500 bg-clip-text text-transparent uppercase">
+                                    ডি-লিকন মেধা মূল্যায়ন উৎসব
+                                  </h2>
+                                  <p className="text-2xl text-slate-300 font-sans tracking-wide max-w-xl mx-auto leading-relaxed">
+                                    লাইভ স্টেজে মেধার লড়াই! মঞ্চের মাইক্রোফোনে কথা বলুন এবং আপনার বুদ্ধিমত্তার স্বাক্ষর রাখুন।
+                                  </p>
+                                </div>
+                                <div className="mt-8 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-3 animate-pulse">
+                                  <Mic className="w-6 h-6 text-amber-400" />
+                                  <span className="text-lg text-slate-400 font-bold font-sans">সঞ্চালক প্রশ্ন বরাদ্দের জন্য অপেক্ষা করছেন...</span>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {hostStateStatus === "assigned" && hostSelectedQuestion && (
+                              /* 2. Active Question Screen */
+                              <motion.div
+                                key="projector-assigned"
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                className="w-full bg-white/5 border-2 border-white/10 p-10 rounded-[3rem] shadow-2xl shadow-indigo-500/5 relative overflow-hidden backdrop-blur-xl flex flex-col gap-8 text-left"
+                              >
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -z-10"></div>
+                                
+                                {/* Presenting Header */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/15 pb-6">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-14 h-14 rounded-2xl bg-amber-500 text-black flex items-center justify-center font-black text-2xl shadow-lg">
+                                      🎤
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-mono text-amber-400 uppercase tracking-widest block font-bold">CONTESTANT ON STAGE • মঞ্চে আছেন</span>
+                                      <h3 className="text-white font-sans font-black text-3xl tracking-tight mt-1">
+                                        {hostSelectedParticipant}
+                                      </h3>
+                                    </div>
+                                  </div>
+                                  <div className="px-4 py-2 bg-indigo-500/20 border border-indigo-500/40 rounded-xl self-start sm:self-center">
+                                    <span className="text-indigo-300 font-sans font-black text-sm uppercase tracking-wider block">
+                                      {hostSelectedQuestion.category.toUpperCase()} • {hostSelectedQuestion.difficulty.toUpperCase()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Question Area */}
+                                <div className="space-y-6">
+                                  <span className="text-sm font-mono text-slate-400 uppercase tracking-widest font-bold">QUESTION • প্রশ্ন</span>
+                                  <h1 className="text-white font-sans font-black text-4xl sm:text-5xl leading-tight tracking-tight">
+                                    {hostSelectedQuestion.question}
+                                  </h1>
+                                </div>
+
+                                {/* Live Options Grid */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                  {hostSelectedQuestion.options.map((opt, idx) => {
+                                    const labels = ["ক", "খ", "গ", "ঘ"];
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className="bg-black/40 border border-white/10 hover:border-white/20 p-5 rounded-2xl flex items-center gap-4 transition-all"
+                                      >
+                                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white font-black text-lg">
+                                          {labels[idx]}
+                                        </div>
+                                        <span className="text-white font-sans font-bold text-xl">{opt}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Status Bar footer */}
+                                <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mt-4 animate-pulse">
+                                  <div className="relative flex h-3 w-3">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                                  </div>
+                                  <span className="text-amber-400 font-sans font-bold text-base">মঞ্চের মাইকে উত্তর বলুন... সঞ্চালক আপনার উত্তরটি শুনছেন।</span>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {hostStateStatus === "correct" && hostSelectedQuestion && (
+                              /* 3. Success / Correct Answer Screen */
+                              <motion.div
+                                key="projector-correct"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="w-full bg-slate-950 border-4 border-emerald-500 p-12 rounded-[3.5rem] shadow-2xl shadow-emerald-500/20 text-center relative overflow-hidden flex flex-col items-center gap-8"
+                              >
+                                {/* Radial Glow effect */}
+                                <div className="absolute inset-0 bg-radial-gradient from-emerald-500/20 to-transparent pointer-events-none"></div>
+                                
+                                {/* Animated Banner Icon */}
+                                <motion.div
+                                  initial={{ scale: 0, rotate: -30 }}
+                                  animate={{ scale: 1, rotate: 0 }}
+                                  transition={{ type: "spring", stiffness: 100, delay: 0.1 }}
+                                  className="w-28 h-28 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40 text-black text-6xl"
+                                >
+                                  🎉
+                                </motion.div>
+
+                                <div className="space-y-4 relative z-10">
+                                  <span className="text-xs font-mono font-black text-emerald-400 tracking-[0.4em] uppercase block">EXCELLENT ANSWER • চমৎকার উত্তর!</span>
+                                  <h1 className="text-white font-display font-black text-6xl tracking-tight leading-none">
+                                    অভিনন্দন, {hostSelectedParticipant}!
+                                  </h1>
+                                  <h2 className="text-emerald-400 font-sans font-black text-3xl tracking-tight mt-2">
+                                    আপনার উত্তরটি একেবারে সঠিক হয়েছে!
+                                  </h2>
+                                </div>
+
+                                <div className="bg-white/5 border border-white/10 p-6 rounded-3xl max-w-2xl w-full text-left relative z-10">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-yellow-400 text-lg">💡</span>
+                                    <span className="text-yellow-400 font-bold uppercase tracking-wider text-xs font-mono">EUREKA EXPLANATION • সঠিক ব্যাখ্যা</span>
+                                  </div>
+                                  <p className="text-slate-300 font-sans text-lg leading-relaxed">
+                                    {hostSelectedQuestion.eurekaExplanation}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-4 text-emerald-300 font-mono text-xl font-bold bg-emerald-500/10 border border-emerald-500/20 px-6 py-2 rounded-2xl relative z-10">
+                                  <span>SCORE: +১০০ Points</span>
+                                  <span>•</span>
+                                  <span>STREAK ACTIVE 🔥</span>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {hostStateStatus === "incorrect" && hostSelectedQuestion && (
+                              /* 4. Incorrect Answer Screen */
+                              <motion.div
+                                key="projector-incorrect"
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="w-full bg-slate-950 border-4 border-red-500 p-12 rounded-[3.5rem] shadow-2xl shadow-red-500/10 text-center relative overflow-hidden flex flex-col items-center gap-8"
+                              >
+                                <div className="absolute inset-0 bg-radial-gradient from-red-500/10 to-transparent pointer-events-none"></div>
+
+                                <motion.div
+                                  initial={{ scale: 0, rotate: 30 }}
+                                  animate={{ scale: 1, rotate: 0 }}
+                                  transition={{ type: "spring", stiffness: 100, delay: 0.1 }}
+                                  className="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center shadow-lg shadow-red-500/40 text-white text-5xl"
+                                >
+                                  💡
+                                </motion.div>
+
+                                <div className="space-y-4 relative z-10">
+                                  <span className="text-xs font-mono font-black text-red-400 tracking-[0.4em] uppercase block">NICE TRY • চমৎকার চেষ্টা!</span>
+                                  <h1 className="text-white font-display font-black text-5xl tracking-tight leading-none">
+                                    ধন্যবাদ, {hostSelectedParticipant}!
+                                  </h1>
+                                  <h2 className="text-red-400 font-sans font-black text-2xl tracking-tight mt-2">
+                                    উত্তরটি সঠিক হয়নি, তবে আপনার প্রচেষ্টা প্রশংসনীয়!
+                                  </h2>
+                                </div>
+
+                                <div className="bg-white/5 border border-white/10 p-6 rounded-3xl max-w-2xl w-full text-left relative z-10">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-red-400 text-lg">🎯</span>
+                                    <span className="text-red-400 font-bold uppercase tracking-wider text-xs font-mono">CORRECT TRIVIA • সঠিক তথ্য</span>
+                                  </div>
+                                  <p className="text-slate-300 font-sans text-lg leading-relaxed">
+                                    সঠিক উত্তরটি ছিল: <span className="text-emerald-400 font-black">{hostSelectedQuestion.options[hostSelectedQuestion.answerIndex]}</span>।
+                                    <br />
+                                    <span className="text-slate-400 text-sm mt-2 block">{hostSelectedQuestion.eurekaExplanation}</span>
+                                  </p>
+                                </div>
+
+                                <div className="text-slate-400 font-mono text-base bg-white/5 border border-white/5 px-6 py-2 rounded-xl relative z-10">
+                                  পরবর্তী প্রশ্নের জন্য প্রস্তুত হোন!
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+
+                        {/* Footer Info bar */}
+                        <div className="flex items-center justify-between border-t border-white/10 pt-4 text-xs font-mono text-white/40">
+                          <span>ডি-লিকন মেধা মূল্যায়ন উৎসব • D-Likon Model Academy</span>
+                          <span>Live Broadcast Frame ID: {Math.floor(Math.random() * 100000)}</span>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      /* SPLIT SCREEN / INTERACTIVE DASHBOARD */
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                        
+                        {/* LEFT COLUMN: HOST STAGE CONTROLLER (lg:col-span-5) */}
+                        <div className="lg:col-span-5 flex flex-col gap-5">
+                          
+                          {/* STEP 1: SELECT CONTESTANT */}
+                          <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className="p-5 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex flex-col gap-3 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-amber-500 text-black flex items-center justify-center font-bold text-xs">১</span>
+                              <h4 className="text-white font-sans font-black text-sm uppercase">শিক্ষার্থী নির্বাচন করুন (Contestant)</h4>
+                            </div>
+
+                            <div className="space-y-3 mt-1">
+                              {/* Dropdown list of participants */}
+                              <div>
+                                <label className="text-[10px] text-slate-400 block mb-1 font-bold">মঞ্চে থাকা প্রতিযোগী নির্ধারণ করুন:</label>
+                                <select
+                                  value={hostSelectedParticipant}
+                                  onChange={(e) => {
+                                    playSound("tap");
+                                    setHostSelectedParticipant(e.target.value);
+                                  }}
+                                  className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white text-xs font-sans font-bold focus:outline-none focus:border-amber-500 transition-all"
+                                >
+                                  {hostParticipants.map((p, idx) => (
+                                    <option key={idx} value={p} className="bg-slate-950 text-white">
+                                      {p}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Form to add a new student dynamically */}
+                              <div className="pt-1">
+                                <label className="text-[10px] text-slate-400 block mb-1 font-bold">নতুন শিক্ষার্থীর নাম যুক্ত করুন:</label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="উদা: তাসনিম জাহান (Tasnim)"
+                                    value={hostNewParticipantName}
+                                    onChange={(e) => setHostNewParticipantName(e.target.value)}
+                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-sans"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" && hostNewParticipantName.trim()) {
+                                        const name = hostNewParticipantName.trim();
+                                        if (!hostParticipants.includes(name)) {
+                                          setHostParticipants([...hostParticipants, name]);
+                                          // Sync with active event if any
+                                          if (activeEventId) {
+                                            const activeEvt = events.find(e => e.id === activeEventId);
+                                            const newParticipant: EventParticipant = {
+                                              id: `p-${Date.now()}`,
+                                              name: name,
+                                              className: "৩য় (Class 3)",
+                                              roll: String((activeEvt?.participants.length || 0) + 1).padStart(2, '0'),
+                                              photoUrl: "avatar1",
+                                              score: 0,
+                                              solvedCount: 0,
+                                              totalAttempted: 0,
+                                              joinedAt: new Date().toISOString()
+                                            };
+                                            setEvents(prev => prev.map(evt => {
+                                              if (evt.id === activeEventId) {
+                                                return {
+                                                  ...evt,
+                                                  participants: [...evt.participants, newParticipant]
+                                                };
+                                              }
+                                              return evt;
+                                            }));
+                                          }
+                                        }
+                                        setHostSelectedParticipant(name);
+                                        setHostNewParticipantName("");
+                                        playSound("tap");
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      if (hostNewParticipantName.trim()) {
+                                        const name = hostNewParticipantName.trim();
+                                        if (!hostParticipants.includes(name)) {
+                                          setHostParticipants([...hostParticipants, name]);
+                                          // Sync with active event if any
+                                          if (activeEventId) {
+                                            const activeEvt = events.find(e => e.id === activeEventId);
+                                            const newParticipant: EventParticipant = {
+                                              id: `p-${Date.now()}`,
+                                              name: name,
+                                              className: "৩য় (Class 3)",
+                                              roll: String((activeEvt?.participants.length || 0) + 1).padStart(2, '0'),
+                                              photoUrl: "avatar1",
+                                              score: 0,
+                                              solvedCount: 0,
+                                              totalAttempted: 0,
+                                              joinedAt: new Date().toISOString()
+                                            };
+                                            setEvents(prev => prev.map(evt => {
+                                              if (evt.id === activeEventId) {
+                                                return {
+                                                  ...evt,
+                                                  participants: [...evt.participants, newParticipant]
+                                                };
+                                              }
+                                              return evt;
+                                            }));
+                                          }
+                                        }
+                                        setHostSelectedParticipant(name);
+                                        setHostNewParticipantName("");
+                                        playSound("tap");
+                                      }
+                                    }}
+                                    className="px-3 bg-amber-500 hover:bg-amber-600 text-black rounded-xl font-bold text-xs transition-all cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Random pick utility */}
+                              <button
+                                onClick={() => {
+                                  playSound("tap");
+                                  const idx = Math.floor(Math.random() * hostParticipants.length);
+                                  setHostSelectedParticipant(hostParticipants[idx]);
+                                }}
+                                className="w-full py-1.5 border border-white/10 hover:border-white/20 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] uppercase font-bold text-slate-300 transition-all cursor-pointer block text-center"
+                              >
+                                🎲 এলোমেলো শিক্ষার্থী নির্বাচন করুন
+                              </button>
+                            </div>
+                          </motion.div>
+
+                          {/* STEP 2: SELECT QUESTION */}
+                          <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.1 }}
+                            className="p-5 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex flex-col gap-3 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-indigo-500 text-black flex items-center justify-center font-bold text-xs">২</span>
+                              <h4 className="text-white font-sans font-black text-sm uppercase">প্রশ্ন বরাদ্দ করুন (Quiz Question)</h4>
+                            </div>
+
+                            <div className="space-y-3 mt-1">
+                              <div>
+                                <label className="text-[10px] text-slate-400 block mb-1 font-bold">কুইজ প্রশ্নটি নির্ধারণ করুন:</label>
+                                <select
+                                  value={hostSelectedQuestion ? DEFAULT_QUESTIONS.findIndex(q => q.question === hostSelectedQuestion.question) : ""}
+                                  onChange={(e) => {
+                                    playSound("tap");
+                                    const index = parseInt(e.target.value);
+                                    if (!isNaN(index) && DEFAULT_QUESTIONS[index]) {
+                                      setHostSelectedQuestion(DEFAULT_QUESTIONS[index]);
+                                      setHostStateStatus("assigned");
+                                    }
+                                  }}
+                                  className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white text-xs font-sans font-bold focus:outline-none focus:border-indigo-500 transition-all"
+                                >
+                                  <option value="" className="bg-slate-950 text-slate-400">--- একটি প্রশ্ন বেছে নিন ({activityPerspective === "gk" ? "সাধারণ জ্ঞান" : "বিশেষ জ্ঞান"}) ---</option>
+                                  {DEFAULT_QUESTIONS.map((q, idx) => {
+                                    const isGk = q.category === "class3_gk";
+                                    if (activityPerspective === "gk" && !isGk) return null;
+                                    if (activityPerspective === "sk" && isGk) return null;
+                                    return (
+                                      <option key={idx} value={idx} className="bg-slate-950 text-white">
+                                        {q.factTitle} ({q.category === "class3_gk" ? "GK" : "SK"})
+                                      </option>
+                                    );
+                                  })}
+                                </select>
+                              </div>
+
+                              {/* Pick random question helper */}
+                              <button
+                                onClick={() => {
+                                  playSound("tap");
+                                  const pool = DEFAULT_QUESTIONS.filter(q => {
+                                    const isGk = q.category === "class3_gk";
+                                    return activityPerspective === "gk" ? isGk : !isGk;
+                                  });
+                                  if (pool.length > 0) {
+                                    const randomQ = pool[Math.floor(Math.random() * pool.length)];
+                                    setHostSelectedQuestion(randomQ);
+                                    setHostStateStatus("assigned");
+                                  }
+                                }}
+                                className="w-full py-1.5 border border-indigo-500/20 hover:border-indigo-500/40 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-300 rounded-xl text-[10px] uppercase font-bold transition-all cursor-pointer block text-center"
+                              >
+                                🎲 এলোমেলো কুইজ প্রশ্ন বরাদ্দ করুন ({activityPerspective === "gk" ? "GK" : "SK"})
+                              </button>
+
+                              {hostSelectedQuestion && (
+                                <div className="p-3 bg-black/40 rounded-xl border border-white/5 space-y-1 text-xs">
+                                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono font-bold">
+                                    <span>সদস্য সঠিক উত্তর সূচক: {hostSelectedQuestion.answerIndex + 1}</span>
+                                    <span className="text-emerald-400 font-sans">ANSWER: {hostSelectedQuestion.options[hostSelectedQuestion.answerIndex]}</span>
+                                  </div>
+                                  <p className="text-slate-300 font-sans font-bold leading-tight mt-1">
+                                    {hostSelectedQuestion.question}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+
+                          {/* STEP 3: EVALUATE & TRIGGER CELEBRATION */}
+                          <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.2 }}
+                            className="p-5 rounded-2xl bg-white/5 border border-white/10 shadow-lg flex flex-col gap-3 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-6 h-6 rounded-lg bg-emerald-500 text-black flex items-center justify-center font-bold text-xs">৩</span>
+                              <h4 className="text-white font-sans font-black text-sm uppercase">উত্তর মূল্যায়ন ও প্রজেক্টর এন্ট্রি</h4>
+                            </div>
+
+                            <p className="text-[10px] text-slate-400 mt-1 font-sans">
+                              প্রতিযোগী মঞ্চের মাইকে উত্তর দেওয়ার পর সঞ্চালক শুনে নিচে ক্লিক করলেই প্রজেক্টরে অভিনন্দন ও ব্যাখ্যা ভেসে উঠবে।
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3 mt-2">
+                              {/* Correct Answer button */}
+                              <button
+                                disabled={!hostSelectedQuestion || hostStateStatus !== "assigned"}
+                                onClick={() => {
+                                  playSound("correct");
+                                  setHostStateStatus("correct");
+                                  speakText(`অসাধারণ অভিনন্দন ${hostSelectedParticipant}! আপনার উত্তরটি একদম সঠিক হয়েছে। আসুন আমরা সবাই মিলে তার জন্য একটা জোরে করতালি দেই।`, "bn");
+                                  
+                                  // Update student score in active Event Zone if matched
+                                  if (activeEventId) {
+                                    setEvents(prev => prev.map(evt => {
+                                      if (evt.id === activeEventId) {
+                                        return {
+                                          ...evt,
+                                          participants: evt.participants.map(p => {
+                                            if (
+                                              p.name.toLowerCase().includes(hostSelectedParticipant.toLowerCase()) ||
+                                              hostSelectedParticipant.toLowerCase().includes(p.name.toLowerCase())
+                                            ) {
+                                              return {
+                                                ...p,
+                                                score: p.score + 100,
+                                                solvedCount: p.solvedCount + 1,
+                                                totalAttempted: p.totalAttempted + 1
+                                              };
+                                            }
+                                            return p;
+                                          })
+                                        };
+                                      }
+                                      return evt;
+                                    }));
+                                  }
+                                }}
+                                className={`py-3 px-4 rounded-xl font-display font-black text-xs uppercase tracking-wider transition-all flex flex-col items-center gap-1.5 cursor-pointer shadow-lg ${
+                                  !hostSelectedQuestion || hostStateStatus !== "assigned"
+                                    ? "bg-slate-800/50 text-slate-500 opacity-40 cursor-not-allowed border border-white/5"
+                                    : "bg-emerald-500 hover:bg-emerald-600 text-black shadow-emerald-500/10 hover:shadow-emerald-500/20"
+                                }`}
+                              >
+                                <CheckCircle2 className="w-5 h-5" />
+                                <span>সদর্থক উত্তর (CORRECT)</span>
+                              </button>
+
+                              {/* Incorrect Answer button */}
+                              <button
+                                disabled={!hostSelectedQuestion || hostStateStatus !== "assigned"}
+                                onClick={() => {
+                                  playSound("incorrect");
+                                  setHostStateStatus("incorrect");
+                                  speakText(`দুঃখিত ${hostSelectedParticipant}! আপনার উত্তরটি সঠিক হয়নি। তবে চমৎকার চেষ্টা করার জন্য আপনাকে অনেক ধন্যবাদ।`, "bn");
+                                  
+                                  // Update student score in active Event Zone if matched
+                                  if (activeEventId) {
+                                    setEvents(prev => prev.map(evt => {
+                                      if (evt.id === activeEventId) {
+                                        return {
+                                          ...evt,
+                                          participants: evt.participants.map(p => {
+                                            if (
+                                              p.name.toLowerCase().includes(hostSelectedParticipant.toLowerCase()) ||
+                                              hostSelectedParticipant.toLowerCase().includes(p.name.toLowerCase())
+                                            ) {
+                                              return {
+                                                ...p,
+                                                totalAttempted: p.totalAttempted + 1
+                                              };
+                                            }
+                                            return p;
+                                          })
+                                        };
+                                      }
+                                      return evt;
+                                    }));
+                                  }
+                                }}
+                                className={`py-3 px-4 rounded-xl font-display font-black text-xs uppercase tracking-wider transition-all flex flex-col items-center gap-1.5 cursor-pointer shadow-lg ${
+                                  !hostSelectedQuestion || hostStateStatus !== "assigned"
+                                    ? "bg-slate-800/50 text-slate-500 opacity-40 cursor-not-allowed border border-white/5"
+                                    : "bg-red-500 hover:bg-red-600 text-white shadow-red-500/10 hover:shadow-red-500/20"
+                                }`}
+                              >
+                                <XCircle className="w-5 h-5" />
+                                <span>ভুল উত্তর (INCORRECT)</span>
+                              </button>
+                            </div>
+
+                            {/* Reset Round / Next Student button */}
+                            <button
+                              onClick={() => {
+                                playSound("tap");
+                                setHostStateStatus("idle");
+                                setHostSelectedQuestion(null);
+                              }}
+                              className="w-full mt-2 py-2 border border-white/10 hover:border-white/20 bg-black/40 hover:bg-black/60 rounded-xl text-xs font-sans font-bold text-slate-300 transition-all cursor-pointer block text-center"
+                            >
+                              🔄 পরবর্তী রাউন্ড শুরু করুন (Next Participant / Reset)
+                            </button>
+                          </motion.div>
+
+                        </div>
+
+                        {/* RIGHT COLUMN: PROJECTOR PREVIEW (lg:col-span-7) */}
+                        <div className="lg:col-span-7 flex flex-col gap-4">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-white/60 font-mono text-[10px] uppercase tracking-widest font-bold flex items-center gap-1.5">
+                              <Monitor className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Projector Live Preview • প্রজেক্টর লাইভ প্রিভিউ</span>
+                            </h4>
+                            <button
+                              onClick={() => {
+                                playSound("tap");
+                                setHostIsProjectorMode(true);
+                              }}
+                              className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1 uppercase transition-all cursor-pointer"
+                            >
+                              <Maximize2 className="w-3 h-3" />
+                              <span>বড় পর্দা মোড (Fullscreen)</span>
+                            </button>
+                          </div>
+
+                          {/* Beautiful Projector Screen frame emulator */}
+                          <div className="aspect-[16/10] bg-slate-950 rounded-3xl border-4 border-slate-700 shadow-2xl relative overflow-hidden flex flex-col justify-between p-6">
+                            
+                            {/* Small Emulator badge overlay */}
+                            <div className="absolute top-3 left-3 px-2 py-0.5 rounded bg-amber-500 text-black font-mono text-[7px] font-bold uppercase tracking-wider z-10 animate-pulse">
+                              LIVE CASTING
+                            </div>
+
+                            {/* Scale emulator container to fit aspect ratio cleanly */}
+                            <div className="flex-1 flex flex-col justify-center items-center w-full">
+                              <AnimatePresence mode="wait">
+                                {hostStateStatus === "idle" && (
+                                  <motion.div
+                                    key="preview-idle"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="text-center flex flex-col items-center gap-3"
+                                  >
+                                    <img
+                                      src={dLikonLogo}
+                                      alt="Logo"
+                                      className="w-16 h-16 rounded-full border-2 border-amber-400 object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <div>
+                                      <h3 className="text-white font-sans font-black text-lg text-amber-400">
+                                        ডি-লিকন মেধা মূল্যায়ন উৎসব
+                                      </h3>
+                                      <p className="text-[10px] text-slate-400 font-sans max-w-sm mt-1">
+                                        মঞ্চের মাইক্রোফোনে কথা বলুন এবং আপনার মেধার উজ্জ্বল স্বাক্ষর রাখুন।
+                                      </p>
+                                    </div>
+                                    <span className="text-[9px] px-3 py-1 bg-white/5 border border-white/5 text-slate-500 rounded-lg animate-pulse font-mono font-bold uppercase tracking-wider">
+                                      Waiting for host to assign...
+                                    </span>
+                                  </motion.div>
+                                )}
+
+                                {hostStateStatus === "assigned" && hostSelectedQuestion && (
+                                  <motion.div
+                                    key="preview-assigned"
+                                    initial={{ opacity: 0, scale: 0.98 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="w-full text-left bg-white/5 border border-white/10 p-5 rounded-2xl flex flex-col gap-4"
+                                  >
+                                    <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                                      <span className="text-[11px] text-amber-400 font-sans font-black flex items-center gap-1">
+                                        🎤 প্রতিযোগী: <span className="text-white">{hostSelectedParticipant}</span>
+                                      </span>
+                                      <span className="text-[9px] font-mono bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 px-2 py-0.5 rounded uppercase">
+                                        {hostSelectedQuestion.category}
+                                      </span>
+                                    </div>
+                                    <h4 className="text-white font-sans font-bold text-base leading-snug">
+                                      {hostSelectedQuestion.question}
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-2 mt-1">
+                                      {hostSelectedQuestion.options.map((opt, i) => (
+                                        <div key={i} className="bg-black/30 border border-white/5 p-2 rounded-xl text-left flex items-center gap-2">
+                                          <span className="text-[9px] w-5 h-5 rounded bg-white/5 text-slate-400 flex items-center justify-center font-bold">
+                                            {["क", "ख", "ग", "घ"][i] || i + 1}
+                                          </span>
+                                          <span className="text-xs text-white/90 font-sans font-bold truncate">{opt}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="text-[9px] text-amber-500/80 font-sans flex items-center gap-1.5 bg-amber-500/5 p-2 rounded-lg border border-amber-500/10 animate-pulse mt-1">
+                                      <Mic className="w-3 h-3" />
+                                      <span>উত্তর দিন... সঞ্চালক শুনছেন</span>
+                                    </div>
+                                  </motion.div>
+                                )}
+
+                                {hostStateStatus === "correct" && hostSelectedQuestion && (
+                                  <motion.div
+                                    key="preview-correct"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="w-full text-center flex flex-col items-center gap-3 p-4 bg-emerald-950/20 border border-emerald-500 rounded-2xl"
+                                  >
+                                    <span className="text-3xl">🎉</span>
+                                    <div>
+                                      <h3 className="text-white font-sans font-black text-lg">
+                                        অভিনন্দন, {hostSelectedParticipant}!
+                                      </h3>
+                                      <p className="text-emerald-400 font-sans font-bold text-xs mt-1">
+                                        আপনার উত্তরটি সঠিক হয়েছে! (+১০০ পয়েন্ট)
+                                      </p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/5 p-3 rounded-xl text-left w-full mt-1">
+                                      <span className="text-[8px] text-yellow-400 font-bold block uppercase tracking-wider font-mono">EUREKA EXPLANATION</span>
+                                      <p className="text-slate-300 font-sans text-[10px] leading-relaxed mt-0.5">
+                                        {hostSelectedQuestion.eurekaExplanation}
+                                      </p>
+                                    </div>
+                                  </motion.div>
+                                )}
+
+                                {hostStateStatus === "incorrect" && hostSelectedQuestion && (
+                                  <motion.div
+                                    key="preview-incorrect"
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="w-full text-center flex flex-col items-center gap-3 p-4 bg-red-950/20 border border-red-500 rounded-2xl"
+                                  >
+                                    <span className="text-2xl">💡</span>
+                                    <div>
+                                      <h3 className="text-white font-sans font-black text-sm">
+                                        চমৎকার চেষ্টা, {hostSelectedParticipant}!
+                                      </h3>
+                                      <p className="text-red-400 font-sans font-bold text-xs mt-1">
+                                        উত্তরটি সঠিক হয়নি, তবে আপনার প্রচেষ্টা প্রশংসনীয়।
+                                      </p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/5 p-3 rounded-xl text-left w-full mt-1">
+                                      <span className="text-[8px] text-emerald-400 font-bold block uppercase tracking-wider font-mono">CORRECT TRIVIA</span>
+                                      <p className="text-slate-300 font-sans text-[10px] leading-relaxed mt-0.5">
+                                        সঠিক উত্তরটি ছিল: <span className="text-emerald-400 font-black">{hostSelectedQuestion.options[hostSelectedQuestion.answerIndex]}</span>
+                                      </p>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+
+                            {/* Bottom emulator bar */}
+                            <div className="border-t border-white/5 pt-2 flex items-center justify-between text-[8px] text-slate-500 font-mono">
+                              <span>D-Likon Model Academy Event screen</span>
+                              <span>Ratio: 16:10</span>
+                            </div>
+
+                          </div>
+
+                          {/* Quick tips card */}
+                          <div className="p-4 bg-white/5 rounded-2xl border border-white/5 text-xs text-slate-400 space-y-1 text-left">
+                            <span className="text-amber-400 font-bold font-sans">💡 কুইজ মাস্টার টিপস:</span>
+                            <p className="font-sans leading-relaxed text-slate-300 text-[11px]">
+                              ১. এই কুইজ স্ক্রিনটি প্রোজেক্টরের মাধ্যমে বড় পর্দায় তুলে ধরার জন্য ডানদিকের <b>"বড় পর্দা মোড (Fullscreen)"</b> বোতামটি ব্যবহার করুন।
+                              <br />
+                              ২. সঠিক বা ভুল বোতামে চাপ দিলে ব্রাউজারে বাংলা ভাষায় ফলাফল স্বয়ংক্রিয়ভাবে পাঠ করে শোনানো হবে, তাই আপনার সাউন্ড সিস্টেম অন রাখুন!
+                            </p>
+                          </div>
+
+                        </div>
+
+                      </div>
+                    )}
 
                   </div>
                 )}
